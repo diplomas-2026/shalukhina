@@ -40,7 +40,6 @@ import AddIcon from '@mui/icons-material/Add';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import Inventory2Icon from '@mui/icons-material/Inventory2';
 import { api } from './lib/http';
-import { mockSeedData } from './mockData';
 import { StatCard } from './components/StatCard';
 import { StatusChip } from './components/StatusChip';
 import { RequestDialog } from './components/RequestDialog';
@@ -63,8 +62,6 @@ const navItems = [
   { key: 'users', label: 'Пользователи', icon: <PeopleIcon /> },
 ];
 
-const persistentKey = 'shalukhina-web-demo-state';
-
 const formatDateTime = (value) =>
   new Intl.DateTimeFormat('ru-RU', {
     dateStyle: 'medium',
@@ -75,8 +72,6 @@ const formatNumber = (value) =>
   new Intl.NumberFormat('ru-RU', {
     maximumFractionDigits: 2,
   }).format(Number(value));
-
-const clone = (value) => JSON.parse(JSON.stringify(value));
 
 function buildDashboard(state) {
   const lowStockItems = state.items.filter((item) => item.currentQuantity <= item.minQuantity);
@@ -95,36 +90,14 @@ function buildDashboard(state) {
   };
 }
 
-function createLocalState() {
-  const persisted = window.localStorage.getItem(persistentKey);
-  if (persisted) {
-    const parsed = JSON.parse(persisted);
-    return {
-      ...parsed,
-      dashboard: buildDashboard(parsed),
-      source: 'local',
-      apiAvailable: false,
-    };
-  }
-
-  const state = {
-    ...clone(mockSeedData),
-    dashboard: null,
-    source: 'local',
-    apiAvailable: false,
-  };
-  state.dashboard = buildDashboard(state);
-  return state;
-}
-
 function normalizeApiState(payload) {
   const state = {
-    departments: payload.departments || mockSeedData.departments,
-    users: payload.users || mockSeedData.users,
-    categories: payload.categories || mockSeedData.categories,
-    items: payload.items || mockSeedData.items,
-    requests: payload.requests || mockSeedData.requests,
-    movements: payload.movements || mockSeedData.movements,
+    departments: payload.departments || [],
+    users: payload.users || [],
+    categories: payload.categories || [],
+    items: payload.items || [],
+    requests: payload.requests || [],
+    movements: payload.movements || [],
     dashboard: payload.dashboard || null,
     source: 'api',
     apiAvailable: true,
@@ -136,7 +109,24 @@ function normalizeApiState(payload) {
 export default function App() {
   const [section, setSection] = useState('dashboard');
   const [loading, setLoading] = useState(true);
-  const [state, setState] = useState(createLocalState);
+  const [state, setState] = useState({
+    departments: [],
+    users: [],
+    categories: [],
+    items: [],
+    requests: [],
+    movements: [],
+    dashboard: buildDashboard({
+      departments: [],
+      users: [],
+      categories: [],
+      items: [],
+      requests: [],
+      movements: [],
+    }),
+    source: 'api',
+    apiAvailable: false,
+  });
   const [createOpen, setCreateOpen] = useState(false);
   const [receiveOpen, setReceiveOpen] = useState(false);
   const [selectedRequestId, setSelectedRequestId] = useState(null);
@@ -144,14 +134,14 @@ export default function App() {
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [search, setSearch] = useState('');
   const [message, setMessage] = useState('');
-  const [activeUserId, setActiveUserId] = useState(state.users[2]?.id || state.users[0]?.id);
+  const [activeUserId, setActiveUserId] = useState(null);
+  const [error, setError] = useState('');
 
   const activeUser = useMemo(
-    () => state.users.find((user) => user.id === activeUserId) || state.users[0],
+    () => state.users.find((user) => user.id === activeUserId) || state.users[0] || null,
     [state.users, activeUserId],
   );
   const canManage = activeUser?.role === 'ADMIN' || activeUser?.role === 'RESPONSIBLE';
-  const isAdmin = activeUser?.role === 'ADMIN';
   const selectedRequest = state.requests.find((request) => request.id === selectedRequestId) || null;
   const selectedItem = state.items.find((item) => item.id === selectedItemId) || null;
 
@@ -180,10 +170,12 @@ export default function App() {
             movements,
           }),
         );
+        setActiveUserId((current) => current ?? users?.[0]?.id ?? null);
         setMessage('API подключен');
+        setError('');
       } catch {
         if (!alive) return;
-        setMessage('API недоступен, включен локальный демо-режим');
+        setError('API недоступен. Проверьте запуск backend-сервиса.');
       } finally {
         if (alive) setLoading(false);
       }
@@ -193,49 +185,6 @@ export default function App() {
       alive = false;
     };
   }, []);
-
-  useEffect(() => {
-    if (state.source === 'local') {
-      window.localStorage.setItem(
-        persistentKey,
-        JSON.stringify({
-          departments: state.departments,
-          users: state.users,
-          categories: state.categories,
-          items: state.items,
-          requests: state.requests,
-          movements: state.movements,
-        }),
-      );
-    }
-  }, [state]);
-
-  const setLocalState = (updater) => {
-    setState((current) => {
-      const next = typeof updater === 'function' ? updater(current) : updater;
-      const prepared = {
-        ...next,
-        dashboard: buildDashboard(next),
-        source: 'local',
-        apiAvailable: false,
-      };
-      return prepared;
-    });
-  };
-
-  const withFallback = async (apiCall, localUpdater) => {
-    try {
-      const result = await apiCall();
-      await reloadApiSnapshot();
-      return result;
-    } catch (error) {
-      if (localUpdater) {
-        setLocalState(localUpdater);
-      }
-      setMessage('Изменение сохранено локально в демо-режиме');
-      return null;
-    }
-  };
 
   async function reloadApiSnapshot() {
     try {
@@ -259,177 +208,50 @@ export default function App() {
           movements,
         }),
       );
+      setActiveUserId((current) => current ?? users?.[0]?.id ?? null);
+      setError('');
+      setMessage('Данные обновлены');
     } catch {
-      // ignore refresh failure, the optimistic local state is already in place
+      setError('Не удалось обновить данные с API.');
     }
   }
+
+  const runApiAction = async (action, successMessage) => {
+    try {
+      await action();
+      await reloadApiSnapshot();
+      setMessage(successMessage);
+      setError('');
+    } catch {
+      setError('Не удалось выполнить действие через API.');
+    }
+  };
 
   const createRequest = async (payload) => {
     const requestBody = {
       ...payload,
       requesterId: activeUser.id,
     };
-    await withFallback(
-      () => api.createRequest(requestBody),
-      (current) => {
-        const nextId = current.requests.length ? Math.max(...current.requests.map((request) => request.id)) + 1 : 1;
-        const nextRequest = {
-          id: nextId,
-          requestNumber: `REQ-${new Date().toISOString().slice(0, 10).replaceAll('-', '')}-${String(nextId).padStart(4, '0')}`,
-          requester: activeUser,
-          department: current.departments.find((department) => department.id === payload.departmentId) || activeUser.department,
-          status: 'SUBMITTED',
-          priority: payload.priority,
-          comment: payload.comment,
-          approvedBy: null,
-          approvedAt: null,
-          rejectionReason: null,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-          items: payload.items.map((line, index) => ({
-            id: Date.now() + index,
-            item: current.items.find((item) => item.id === line.itemId),
-            quantityRequested: Number(line.quantity),
-            quantityIssued: 0,
-            note: line.note,
-          })),
-        };
-        return {
-          ...current,
-          requests: [nextRequest, ...current.requests],
-        };
-      },
-    );
-    setMessage('Заявка создана');
+    await runApiAction(() => api.createRequest(requestBody), 'Заявка создана');
   };
 
   const approveRequest = async (requestId) => {
     const body = { actorId: activeUser.id, comment: 'Согласовано' };
-    await withFallback(
-      () => api.approveRequest(requestId, body),
-      (current) => ({
-        ...current,
-        requests: current.requests.map((request) =>
-          request.id === requestId
-            ? {
-                ...request,
-                status: 'APPROVED',
-                approvedBy: activeUser,
-                approvedAt: new Date().toISOString(),
-                updatedAt: new Date().toISOString(),
-              }
-            : request,
-        ),
-      }),
-    );
-    setMessage('Заявка согласована');
+    await runApiAction(() => api.approveRequest(requestId, body), 'Заявка согласована');
   };
 
   const rejectRequest = async (requestId) => {
     const body = { actorId: activeUser.id, reason: 'Отклонено ответственным' };
-    await withFallback(
-      () => api.rejectRequest(requestId, body),
-      (current) => ({
-        ...current,
-        requests: current.requests.map((request) =>
-          request.id === requestId
-            ? {
-                ...request,
-                status: 'REJECTED',
-                approvedBy: activeUser,
-                rejectionReason: body.reason,
-                approvedAt: new Date().toISOString(),
-                updatedAt: new Date().toISOString(),
-              }
-            : request,
-        ),
-      }),
-    );
-    setMessage('Заявка отклонена');
+    await runApiAction(() => api.rejectRequest(requestId, body), 'Заявка отклонена');
   };
 
   const issueRequest = async (requestId) => {
     const body = { actorId: activeUser.id, document: `REQ-${requestId}` };
-    await withFallback(
-      () => api.issueRequest(requestId, body),
-      (current) => {
-        const request = current.requests.find((entry) => entry.id === requestId);
-        if (!request) return current;
-
-        const updatedItems = current.items.map((item) => {
-          const requestItem = request.items.find((line) => line.item.id === item.id);
-          if (!requestItem) return item;
-          return {
-            ...item,
-            currentQuantity: Number(item.currentQuantity) - Number(requestItem.quantityRequested),
-          };
-        });
-        const issueMovements = request.items.map((line, index) => ({
-          id: Date.now() + index,
-          type: 'ISSUE',
-          item: line.item,
-          quantity: Number(line.quantityRequested),
-          happenedAt: new Date().toISOString(),
-          sourceDocument: body.document,
-          actor: activeUser,
-          comment: 'Выдача по заявке',
-        }));
-        const nextMovements = [
-          ...issueMovements,
-          ...current.movements,
-        ];
-        return {
-          ...current,
-          items: updatedItems,
-          movements: nextMovements,
-          requests: current.requests.map((entry) =>
-            entry.id === requestId
-              ? {
-                  ...entry,
-                  status: 'ISSUED',
-                  updatedAt: new Date().toISOString(),
-                  items: entry.items.map((line) => ({
-                    ...line,
-                    quantityIssued: line.quantityRequested,
-                  })),
-                }
-              : entry,
-          ),
-        };
-      },
-    );
-    setMessage('Товары выданы');
+    await runApiAction(() => api.issueRequest(requestId, body), 'Товары выданы');
   };
 
   const receiveItem = async (payload) => {
-    await withFallback(
-      () => api.receiveItem(payload.itemId, payload),
-      (current) => ({
-        ...current,
-        items: current.items.map((item) =>
-          item.id === payload.itemId
-            ? {
-                ...item,
-                currentQuantity: Number(item.currentQuantity) + Number(payload.quantity),
-              }
-            : item,
-        ),
-        movements: [
-          {
-            id: Date.now(),
-            type: 'RECEIPT',
-            item: current.items.find((item) => item.id === payload.itemId),
-            quantity: Number(payload.quantity),
-            happenedAt: new Date().toISOString(),
-            sourceDocument: payload.document,
-            actor: activeUser,
-            comment: payload.comment,
-          },
-          ...current.movements,
-        ],
-      }),
-    );
-    setMessage('Поступление сохранено');
+    await runApiAction(() => api.receiveItem(payload.itemId, payload), 'Поступление сохранено');
   };
 
   const filteredRequests = useMemo(() => {
@@ -463,8 +285,8 @@ export default function App() {
             </Typography>
           </Box>
           <Chip
-            color={state.apiAvailable ? 'success' : 'warning'}
-            label={state.apiAvailable ? 'API подключен' : 'Демо-режим'}
+            color={state.apiAvailable ? 'success' : 'default'}
+            label={state.apiAvailable ? 'API подключен' : 'API отключен'}
             variant="filled"
             sx={{ fontWeight: 700 }}
           />
@@ -546,6 +368,7 @@ export default function App() {
             </Stack>
           ) : (
             <Stack spacing={3}>
+              {error ? <Alert severity="error">{error}</Alert> : null}
               {message ? <Alert severity="info">{message}</Alert> : null}
               <Paper elevation={0} sx={{ p: 3, borderRadius: 4, border: '1px solid rgba(15, 23, 42, 0.08)' }}>
                 <Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" spacing={2}>
