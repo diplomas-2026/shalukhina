@@ -148,6 +148,7 @@ export default function App() {
   const [search, setSearch] = useState('');
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
+  const [statusChangingRequestId, setStatusChangingRequestId] = useState(null);
   const [authUser, setAuthUser] = useState(null);
   const [authLoading, setAuthLoading] = useState(Boolean(api.getToken()));
   const [loginForm, setLoginForm] = useState({ username: 'admin', password: 'admin123' });
@@ -383,15 +384,20 @@ export default function App() {
   };
 
   const moveRequestStatus = async (requestId, nextStatus) => {
+    setStatusChangingRequestId(requestId);
     const noteByStatus = {
       APPROVED: 'Согласовано через канбан',
       REJECTED: 'Отклонено через канбан',
       ISSUED: 'Выдано через канбан',
     };
-    await runApiAction(
-      () => api.changeRequestStatus(requestId, { status: nextStatus, note: noteByStatus[nextStatus] || 'Изменено через канбан' }),
-      'Статус заявки изменен',
-    );
+    try {
+      await runApiAction(
+        () => api.changeRequestStatus(requestId, { status: nextStatus, note: noteByStatus[nextStatus] || 'Изменено через канбан' }),
+        'Статус заявки изменен',
+      );
+    } finally {
+      setStatusChangingRequestId((current) => (current === requestId ? null : current));
+    }
   };
 
   const receiveItem = async (payload) => {
@@ -702,6 +708,7 @@ export default function App() {
                   requests={kanbanRequests}
                   onMoveRequest={moveRequestStatus}
                   onOpenRequest={openRequestDetailsPage}
+                  statusChangingRequestId={statusChangingRequestId}
                 />
               ) : (
                 <>

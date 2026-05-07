@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Box, Paper, Stack, Typography } from '@mui/material';
+import { Box, CircularProgress, Paper, Stack, Typography } from '@mui/material';
 import { StatusChip } from './StatusChip';
 
 const columns = [
@@ -15,7 +15,7 @@ const formatDateTime = (value) =>
     timeStyle: 'short',
   }).format(new Date(value));
 
-export function RequestKanbanBoard({ requests, onMoveRequest, onOpenRequest }) {
+export function RequestKanbanBoard({ requests, onMoveRequest, onOpenRequest, statusChangingRequestId }) {
   const [draggedRequest, setDraggedRequest] = useState(null);
   const [overStatus, setOverStatus] = useState(null);
 
@@ -117,19 +117,29 @@ export function RequestKanbanBoard({ requests, onMoveRequest, onOpenRequest }) {
               <Stack spacing={1.5} sx={{ flex: 1 }}>
                 {grouped[column.status].map((request) => {
                   const isDragging = draggedRequest?.id === request.id;
+                  const isLoading = statusChangingRequestId === request.id;
                   return (
                     <Paper
                       key={request.id}
                       variant="outlined"
                       draggable
-                      onDragStart={() => handleDragStart(request.id)}
+                      onDragStart={() => {
+                        if (isLoading) {
+                          return;
+                        }
+                        handleDragStart(request.id);
+                      }}
                       onDragEnd={handleDragEnd}
-                      onClick={() => onOpenRequest(request.id)}
+                      onClick={() => {
+                        if (!isLoading) {
+                          onOpenRequest(request.id);
+                        }
+                      }}
                       sx={{
                         p: 1.5,
                         borderRadius: 2,
-                        cursor: 'grab',
-                        opacity: isDragging ? 0.5 : 1,
+                        cursor: isLoading ? 'wait' : 'grab',
+                        opacity: isDragging || isLoading ? 0.5 : 1,
                         transition: 'transform 0.15s ease, box-shadow 0.15s ease',
                         '&:hover': {
                           boxShadow: '0 10px 20px rgba(15, 23, 42, 0.08)',
@@ -153,6 +163,14 @@ export function RequestKanbanBoard({ requests, onMoveRequest, onOpenRequest }) {
                         <Typography variant="body2" color="text.secondary">
                           {request.items.length} позиций · {formatDateTime(request.createdAt)}
                         </Typography>
+                        {isLoading ? (
+                          <Stack direction="row" spacing={1} alignItems="center" sx={{ pt: 0.5 }}>
+                            <CircularProgress size={16} />
+                            <Typography variant="caption" color="text.secondary">
+                              Обновляем статус...
+                            </Typography>
+                          </Stack>
+                        ) : null}
                       </Stack>
                     </Paper>
                   );
