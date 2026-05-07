@@ -51,7 +51,18 @@ export function RequestKanbanBoard({ requests, onMoveRequest, onOpenRequest, all
   };
 
   return (
-    <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: { xs: '1fr', md: 'repeat(2, 1fr)', xl: 'repeat(4, 1fr)' } }}>
+    <Box
+      sx={{
+        display: 'flex',
+        flexWrap: 'nowrap',
+        gap: 2,
+        overflowX: 'auto',
+        overflowY: 'hidden',
+        pb: 1,
+        pr: 1,
+        WebkitOverflowScrolling: 'touch',
+      }}
+    >
       {columns.map((column) => {
         const canDrop = draggedRequest && (allowedTargets?.[draggedRequest.status] || []).includes(column.status);
         return (
@@ -76,6 +87,8 @@ export function RequestKanbanBoard({ requests, onMoveRequest, onOpenRequest, all
               handleDrop(column.status);
             }}
             sx={{
+              flex: '0 0 320px',
+              width: 320,
               p: 2,
               borderRadius: 2,
               minHeight: 540,
