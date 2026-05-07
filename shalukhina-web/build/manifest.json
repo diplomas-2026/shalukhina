@@ -1,0 +1,8 @@
+{
+  "short_name": "Просветское",
+  "name": "МБУ Просветское | Канцтовары",
+  "start_url": ".",
+  "display": "standalone",
+  "theme_color": "#0f172a",
+  "background_color": "#f8fafc"
+}

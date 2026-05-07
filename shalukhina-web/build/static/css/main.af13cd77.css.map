@@ -1,0 +1,1 @@
+{"version":3,"file":"static/css/main.af13cd77.css","mappings":"AAAA,gBAGE,eACF,CAEA,KACE,QACF,CAEA,EACE,qBACF","sources":["index.css"],"sourcesContent":["html,\nbody,\n#root {\n  min-height: 100%;\n}\n\nbody {\n  margin: 0;\n}\n\n* {\n  box-sizing: border-box;\n}\n"],"names":[],"sourceRoot":""}
