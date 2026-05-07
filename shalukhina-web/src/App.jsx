@@ -25,6 +25,7 @@ import {
 import DashboardIcon from '@mui/icons-material/Dashboard';
 import AssignmentIcon from '@mui/icons-material/Assignment';
 import WarehouseIcon from '@mui/icons-material/Warehouse';
+import Inventory2Icon from '@mui/icons-material/Inventory2';
 import AssessmentIcon from '@mui/icons-material/Assessment';
 import PeopleIcon from '@mui/icons-material/People';
 import AddIcon from '@mui/icons-material/Add';
@@ -50,6 +51,7 @@ const sectionTitles = {
   dashboard: 'Главная',
   requests: 'Заявки',
   inventory: 'Склад',
+  items: 'Товары',
   reports: 'Отчеты',
   users: 'Сотрудники и справочники',
 };
@@ -58,6 +60,7 @@ const navItems = [
   { key: 'dashboard', label: 'Главная', icon: <DashboardIcon /> },
   { key: 'requests', label: 'Заявки', icon: <AssignmentIcon /> },
   { key: 'inventory', label: 'Склад', icon: <WarehouseIcon /> },
+  { key: 'items', label: 'Товары', icon: <Inventory2Icon /> },
   { key: 'reports', label: 'Отчеты', icon: <AssessmentIcon /> },
   { key: 'users', label: 'Сотрудники', icon: <PeopleIcon /> },
 ];
@@ -222,7 +225,10 @@ export default function App() {
       if (isEmployee) {
         return item.key === 'dashboard' || item.key === 'requests';
       }
-      return item.key !== 'users' || isAdmin;
+      if (isAdmin) {
+        return true;
+      }
+      return item.key !== 'users' && item.key !== 'items';
     }),
     [isAdmin, isEmployee],
   );
@@ -1267,6 +1273,22 @@ export default function App() {
   } else if (isAdmin && section === 'users') {
     content = (
       <AdminDirectoryPanel
+        defaultTab="users"
+        users={state.users}
+        items={state.items}
+        categories={categories}
+        departments={state.departments}
+        warehouses={warehouses}
+        onSaveUser={saveUser}
+        onDeleteUser={deleteUser}
+        onSaveItem={saveItem}
+        onDeleteItem={deleteItem}
+      />
+    );
+  } else if (isAdmin && section === 'items') {
+    content = (
+      <AdminDirectoryPanel
+        defaultTab="items"
         users={state.users}
         items={state.items}
         categories={categories}

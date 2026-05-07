@@ -251,6 +251,7 @@ function ItemDialog({ open, item, categories, warehouses, onClose, onSave }) {
 }
 
 export function AdminDirectoryPanel({
+  defaultTab = 'users',
   users,
   items,
   categories,
@@ -261,11 +262,15 @@ export function AdminDirectoryPanel({
   onSaveItem,
   onDeleteItem,
 }) {
-  const [tab, setTab] = useState('users');
+  const [tab, setTab] = useState(defaultTab);
   const [userDialogOpen, setUserDialogOpen] = useState(false);
   const [editingUser, setEditingUser] = useState(null);
   const [itemDialogOpen, setItemDialogOpen] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
+
+  useEffect(() => {
+    setTab(defaultTab);
+  }, [defaultTab]);
 
   const userCount = users.length;
   const itemCount = items.length;
