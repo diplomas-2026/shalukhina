@@ -5,7 +5,6 @@ import {
   Button,
   Divider,
   FormControl,
-  Grid,
   IconButton,
   MenuItem,
   Paper,
@@ -136,11 +135,11 @@ export function RequestFormPage({ mode, request, items, requester, departments, 
             </Typography>
           </Box>
 
-          <Grid container spacing={2}>
-            <Grid item xs={12}>
+          <Stack spacing={2}>
+            <Box>
               <TextField fullWidth label="Заявитель" value={requester?.fullName || ''} disabled />
-            </Grid>
-            <Grid item xs={12}>
+            </Box>
+            <Box>
               <FormControl fullWidth>
                 <Typography variant="caption" color="text.secondary" sx={{ mb: 0.5 }}>
                   Кабинет / отдел
@@ -153,8 +152,8 @@ export function RequestFormPage({ mode, request, items, requester, departments, 
                   ))}
                 </Select>
               </FormControl>
-            </Grid>
-            <Grid item xs={12}>
+            </Box>
+            <Box>
               <FormControl fullWidth>
                 <Typography variant="caption" color="text.secondary" sx={{ mb: 0.5 }}>
                   Срочность
@@ -166,18 +165,18 @@ export function RequestFormPage({ mode, request, items, requester, departments, 
                   <MenuItem value="URGENT">Срочный</MenuItem>
                 </Select>
               </FormControl>
-            </Grid>
-            <Grid item xs={12}>
+            </Box>
+            <Box>
               <TextField
                 fullWidth
                 label="Краткое пояснение"
                 value={comment}
                 onChange={(event) => setComment(event.target.value)}
                 multiline
-                minRows={2}
+                minRows={3}
               />
-            </Grid>
-          </Grid>
+            </Box>
+          </Stack>
         </Stack>
 
         <Divider sx={{ my: 3 }} />
