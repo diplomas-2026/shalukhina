@@ -6,11 +6,14 @@ import com.github.danbel.shalukhinaapi.domain.RequestStatus;
 import com.github.danbel.shalukhinaapi.domain.StockMovementType;
 import com.github.danbel.shalukhinaapi.domain.SupplyCategory;
 import com.github.danbel.shalukhinaapi.domain.SupplyItem;
+import com.github.danbel.shalukhinaapi.domain.RequestChatMessage;
 import com.github.danbel.shalukhinaapi.domain.SupplyRequest;
 import com.github.danbel.shalukhinaapi.domain.SupplyRequestItem;
 import com.github.danbel.shalukhinaapi.domain.SystemUser;
 import com.github.danbel.shalukhinaapi.domain.UserRole;
 import com.github.danbel.shalukhinaapi.repo.DepartmentRepository;
+import com.github.danbel.shalukhinaapi.repo.RequestChatMessageRepository;
+import com.github.danbel.shalukhinaapi.repo.SupplyRequestRepository;
 import com.github.danbel.shalukhinaapi.repo.StockMovementRepository;
 import com.github.danbel.shalukhinaapi.repo.SupplyCategoryRepository;
 import com.github.danbel.shalukhinaapi.repo.SupplyItemRepository;
@@ -31,16 +34,24 @@ public class SeedDataInitializer implements CommandLineRunner {
     private final SystemUserRepository userRepository;
     private final SupplyCategoryRepository categoryRepository;
     private final SupplyItemRepository itemRepository;
+    private final SupplyRequestRepository requestRepository;
+    private final RequestChatMessageRepository chatMessageRepository;
     private final StockMovementRepository movementRepository;
     private final RequestService requestService;
     private final PasswordEncoder passwordEncoder;
 
     @Override
     public void run(String... args) {
-        if (departmentRepository.count() > 0 || userRepository.count() > 0 || itemRepository.count() > 0) {
-            return;
+        if (departmentRepository.count() == 0 && userRepository.count() == 0 && itemRepository.count() == 0) {
+            seedBaseData();
         }
 
+        if (chatMessageRepository.count() == 0) {
+            seedChatData();
+        }
+    }
+
+    private void seedBaseData() {
         Department adminDepartment = new Department();
         adminDepartment.setCode("ADMIN");
         adminDepartment.setName("Администрация");
@@ -180,6 +191,24 @@ public class SeedDataInitializer implements CommandLineRunner {
         movementRepository.save(buildMovement(items.get(0), new BigDecimal("4"), responsible, StockMovementType.ADJUSTMENT, "Инвентаризация", "Корректировка по итогам сверки"));
     }
 
+    private void seedChatData() {
+        SupplyRequest issuedRequest = requestRepository.findByStatusOrderByCreatedAtDesc(RequestStatus.ISSUED).stream().findFirst().orElse(null);
+        SupplyRequest rejectedRequest = requestRepository.findByStatusOrderByCreatedAtDesc(RequestStatus.REJECTED).stream().findFirst().orElse(null);
+        SystemUser employee = userRepository.findByUsername("ekuznetsova").orElse(null);
+        SystemUser accountant = userRepository.findByUsername("milina").orElse(null);
+        SystemUser responsible = userRepository.findByUsername("osidorova").orElse(null);
+
+        if (issuedRequest != null && employee != null && accountant != null) {
+            chatMessageRepository.save(buildChatMessage(issuedRequest, employee, "Подскажите, пожалуйста, когда примерно можно получить канцтовары?"));
+            chatMessageRepository.save(buildChatMessage(issuedRequest, accountant, "Заявка согласована, можно выдавать сегодня после обеда."));
+        }
+
+        if (rejectedRequest != null && employee != null && responsible != null) {
+            chatMessageRepository.save(buildChatMessage(rejectedRequest, employee, "Поняла, вернусь к этому запросу позже."));
+            chatMessageRepository.save(buildChatMessage(rejectedRequest, responsible, "Да, после обновления бюджета рассмотрим повторно."));
+        }
+    }
+
     private SupplyItem buildItem(String name, String sku, SupplyCategory category, String unit, BigDecimal quantity, BigDecimal minQuantity, String location) {
         SupplyItem item = new SupplyItem();
         item.setName(name);
@@ -222,6 +251,14 @@ public class SeedDataInitializer implements CommandLineRunner {
         movement.setSourceDocument(sourceDocument);
         movement.setComment(comment);
         return movement;
+    }
+
+    private RequestChatMessage buildChatMessage(SupplyRequest request, SystemUser sender, String text) {
+        RequestChatMessage message = new RequestChatMessage();
+        message.setRequest(request);
+        message.setSender(sender);
+        message.setText(text);
+        return message;
     }
 
     private record RequestLine(SupplyItem item, BigDecimal quantity, String note) {

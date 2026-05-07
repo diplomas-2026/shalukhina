@@ -50,6 +50,7 @@ import { StatCard } from './components/StatCard';
 import { StatusChip } from './components/StatusChip';
 import { RequestDialog } from './components/RequestDialog';
 import { ReceiveDialog } from './components/ReceiveDialog';
+import { RequestChatPanel } from './components/RequestChatPanel';
 
 const drawerWidth = 280;
 const sectionTitles = {
@@ -1022,36 +1023,70 @@ export default function App() {
       />
 
       <Drawer anchor="right" open={Boolean(selectedRequest)} onClose={() => setSelectedRequestId(null)}>
-        <Box sx={{ width: 420, p: 3 }}>
+        <Box sx={{ width: 'min(100vw, 1180px)', p: 3, height: '100vh', overflowY: 'auto' }}>
           {selectedRequest ? (
-            <Stack spacing={2}>
-              <Typography variant="h5">{selectedRequest.requestNumber}</Typography>
-              <Stack direction="row" spacing={1}>
-                <StatusChip value={selectedRequest.status} />
-                <StatusChip value={selectedRequest.priority} />
-              </Stack>
-              <Typography color="text.secondary">
-                {selectedRequest.requester?.fullName} · {selectedRequest.department?.name}
-              </Typography>
-              <Typography>{selectedRequest.comment}</Typography>
-              <Divider />
-              <Typography variant="subtitle1" fontWeight={700}>
-                Состав заявки
-              </Typography>
-              {selectedRequest.items.map((line) => (
-                <Paper key={line.id} variant="outlined" sx={{ p: 1.5, borderRadius: 1.5 }}>
-                  <Stack spacing={0.5}>
-                    <Typography fontWeight={700}>{line.item?.name}</Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      {line.quantityRequested} {line.item?.unit} · выдано {line.quantityIssued}
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      {line.note}
-                    </Typography>
+            <Grid container spacing={2.5}>
+              <Grid item xs={12} md={4}>
+                <Paper elevation={0} sx={{ p: 2.5, borderRadius: 2, border: '1px solid rgba(15, 23, 42, 0.08)', height: '100%' }}>
+                  <Stack spacing={2}>
+                    <Box>
+                      <Typography variant="h5">{selectedRequest.requestNumber}</Typography>
+                      <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                        {selectedRequest.requester?.fullName} · {selectedRequest.department?.name}
+                      </Typography>
+                    </Box>
+                    <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                      <StatusChip value={selectedRequest.status} />
+                      <StatusChip value={selectedRequest.priority} />
+                    </Stack>
+                    <Box>
+                      <Typography variant="subtitle2" color="text.secondary">
+                        Комментарий к заявке
+                      </Typography>
+                      <Typography sx={{ mt: 0.75, whiteSpace: 'pre-wrap' }}>
+                        {selectedRequest.comment || 'Комментарий не указан'}
+                      </Typography>
+                    </Box>
+                    {selectedRequest.rejectionReason ? (
+                      <Box>
+                        <Typography variant="subtitle2" color="text.secondary">
+                          Причина отклонения
+                        </Typography>
+                        <Typography sx={{ mt: 0.75, whiteSpace: 'pre-wrap' }}>
+                          {selectedRequest.rejectionReason}
+                        </Typography>
+                      </Box>
+                    ) : null}
+                    <Divider />
+                    <Box>
+                      <Typography variant="subtitle1" fontWeight={700} sx={{ mb: 1.5 }}>
+                        Состав заявки
+                      </Typography>
+                      <Stack spacing={1.25}>
+                        {selectedRequest.items.map((line) => (
+                          <Paper key={line.id} variant="outlined" sx={{ p: 1.5, borderRadius: 1.5 }}>
+                            <Stack spacing={0.5}>
+                              <Typography fontWeight={700}>{line.item?.name}</Typography>
+                              <Typography variant="body2" color="text.secondary">
+                                {line.quantityRequested} {line.item?.unit} · выдано {line.quantityIssued}
+                              </Typography>
+                              {line.note ? (
+                                <Typography variant="body2" color="text.secondary">
+                                  {line.note}
+                                </Typography>
+                              ) : null}
+                            </Stack>
+                          </Paper>
+                        ))}
+                      </Stack>
+                    </Box>
                   </Stack>
                 </Paper>
-              ))}
-            </Stack>
+              </Grid>
+              <Grid item xs={12} md={8}>
+                <RequestChatPanel request={selectedRequest} currentUser={activeUser} />
+              </Grid>
+            </Grid>
           ) : null}
         </Box>
       </Drawer>
