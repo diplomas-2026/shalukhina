@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -47,6 +48,13 @@ public class RequestController {
                 command.items()
         );
         return requestService.createRequest(secureCommand);
+    }
+
+    @PutMapping("/{id}")
+    @PreAuthorize("isAuthenticated()")
+    public SupplyRequest update(@PathVariable Long id, @RequestBody RequestService.UpdateRequestCommand command, HttpServletRequest request) {
+        SystemUser currentUser = currentUserResolver.requireUser(request);
+        return requestService.updateRequest(id, currentUser.getId(), command);
     }
 
     @PostMapping("/{id}/approve")

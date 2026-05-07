@@ -48,9 +48,9 @@ import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
 import { api, setToken } from './lib/http';
 import { StatCard } from './components/StatCard';
 import { StatusChip } from './components/StatusChip';
-import { RequestDialog } from './components/RequestDialog';
 import { ReceiveDialog } from './components/ReceiveDialog';
-import { RequestChatPanel } from './components/RequestChatPanel';
+import { RequestFormPage } from './components/RequestFormPage';
+import { RequestDetailsPage } from './components/RequestDetailsPage';
 
 const drawerWidth = 280;
 const sectionTitles = {
@@ -145,12 +145,11 @@ function normalizeApiState(payload) {
 }
 
 export default function App() {
+  const [route, setRoute] = useState(() => window.location.pathname);
   const [section, setSection] = useState('dashboard');
   const [loading, setLoading] = useState(true);
   const [state, setState] = useState(createEmptyState);
-  const [createOpen, setCreateOpen] = useState(false);
   const [receiveOpen, setReceiveOpen] = useState(false);
-  const [selectedRequestId, setSelectedRequestId] = useState(null);
   const [selectedItemId, setSelectedItemId] = useState(null);
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [search, setSearch] = useState('');
@@ -177,7 +176,6 @@ export default function App() {
     }),
     [canManage, isEmployee],
   );
-  const selectedRequest = state.requests.find((request) => request.id === selectedRequestId) || null;
   const selectedItem = state.items.find((item) => item.id === selectedItemId) || null;
   const employeeRequests = useMemo(
     () => state.requests.filter((request) => request.requester?.id === activeUser?.id),
@@ -204,6 +202,32 @@ export default function App() {
     () => (isEmployee ? employeeRequests : state.dashboard.recentRequests),
     [employeeRequests, isEmployee, state.dashboard.recentRequests],
   );
+  const requestRouteMatch = useMemo(() => {
+    if (route === '/requests/new') {
+      return { mode: 'create', requestId: null };
+    }
+    const match = route.match(/^\/requests\/(\d+)(\/edit)?$/);
+    if (!match) {
+      return null;
+    }
+    return {
+      mode: match[2] ? 'edit' : 'detail',
+      requestId: Number(match[1]),
+    };
+  }, [route]);
+  const routeRequest = useMemo(() => {
+    if (!requestRouteMatch?.requestId) {
+      return null;
+    }
+    return state.requests.find((request) => request.id === requestRouteMatch.requestId) || null;
+  }, [requestRouteMatch, state.requests]);
+
+  const navigate = (path) => {
+    if (window.location.pathname !== path) {
+      window.history.pushState({}, '', path);
+      setRoute(path);
+    }
+  };
 
   async function loadSnapshot(includeUsers) {
     const requests = await api.getRequests();
@@ -230,6 +254,16 @@ export default function App() {
       setSection(visibleNavItems[0]?.key || 'dashboard');
     }
   }, [section, visibleNavItems]);
+
+  useEffect(() => {
+    const handlePopState = () => {
+      setRoute(window.location.pathname);
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+    };
+  }, []);
 
   useEffect(() => {
     let alive = true;
@@ -308,8 +342,9 @@ export default function App() {
     setMessage('');
     setError('');
     setSection('dashboard');
-    setSelectedRequestId(null);
     setSelectedItemId(null);
+    window.history.pushState({}, '', '/');
+    setRoute('/');
     setLoading(false);
   };
 
@@ -354,6 +389,26 @@ export default function App() {
 
   const receiveItem = async (payload) => {
     await runApiAction(() => api.receiveItem(payload.itemId, payload), 'Поступление сохранено');
+  };
+
+  const openRequestCreatePage = () => navigate('/requests/new');
+  const openRequestDetailsPage = (requestId) => navigate(`/requests/${requestId}`);
+  const openRequestEditPage = (requestId) => navigate(`/requests/${requestId}/edit`);
+
+  const saveNewRequest = async (payload) => {
+    const requestBody = {
+      ...payload,
+      requesterId: activeUser.id,
+    };
+    const created = await api.createRequest(requestBody);
+    await reloadApiSnapshot();
+    navigate(`/requests/${created.id}`);
+  };
+
+  const saveEditedRequest = async (requestId, payload) => {
+    const updated = await api.updateRequest(requestId, payload);
+    await reloadApiSnapshot();
+    navigate(`/requests/${updated.id}`);
   };
 
   const filteredRequests = useMemo(() => {
@@ -423,6 +478,62 @@ export default function App() {
           </Stack>
         </Paper>
       </Box>
+    );
+  }
+
+  if (requestRouteMatch) {
+    if (requestRouteMatch.mode === 'create') {
+      return (
+        <RequestFormPage
+          mode="create"
+          request={null}
+          items={state.items}
+          requester={activeUser}
+          departments={state.departments}
+          onSubmit={saveNewRequest}
+          onCancel={() => navigate('/')}
+        />
+      );
+    }
+
+    if (!routeRequest) {
+      return (
+        <Box sx={{ minHeight: '100vh', display: 'grid', placeItems: 'center', background: 'linear-gradient(180deg, #eff6ff 0%, #f8fafc 100%)', p: 2 }}>
+          <Paper elevation={0} sx={{ p: 4, borderRadius: 2, border: '1px solid rgba(15, 23, 42, 0.08)' }}>
+            <Stack spacing={2} alignItems="center">
+              <Typography variant="h5">Заявка не найдена</Typography>
+              <Button variant="contained" onClick={() => navigate('/')}>
+                На главную
+              </Button>
+            </Stack>
+          </Paper>
+        </Box>
+      );
+    }
+
+    const canEditRequest = routeRequest.status === 'SUBMITTED' && (canManage || routeRequest.requester?.id === activeUser.id);
+
+    if (requestRouteMatch.mode === 'edit') {
+      return (
+        <RequestFormPage
+          mode="edit"
+          request={routeRequest}
+          items={state.items}
+          requester={routeRequest.requester}
+          departments={state.departments}
+          onSubmit={(payload) => saveEditedRequest(routeRequest.id, payload)}
+          onCancel={() => navigate(`/requests/${routeRequest.id}`)}
+        />
+      );
+    }
+
+    return (
+      <RequestDetailsPage
+        request={routeRequest}
+        currentUser={activeUser}
+        onBack={() => navigate('/')}
+        onEdit={canEditRequest ? () => navigate(`/requests/${routeRequest.id}/edit`) : null}
+      />
     );
   }
 
@@ -503,7 +614,7 @@ export default function App() {
           <Divider sx={{ my: 2 }} />
 
           <Stack spacing={1.5}>
-            <Button fullWidth variant="contained" startIcon={<AddIcon />} onClick={() => setCreateOpen(true)} disabled={!canManage && activeUser?.role !== 'EMPLOYEE'}>
+            <Button fullWidth variant="contained" startIcon={<AddIcon />} onClick={openRequestCreatePage} disabled={!canManage && activeUser?.role !== 'EMPLOYEE'}>
               Создать заявку
             </Button>
             {canManage && (
@@ -550,7 +661,7 @@ export default function App() {
                     <Button startIcon={<RefreshIcon />} variant="outlined" onClick={reloadApiSnapshot}>
                       Обновить
                     </Button>
-                    <Button startIcon={<AddIcon />} variant="contained" onClick={() => setCreateOpen(true)}>
+                    <Button startIcon={<AddIcon />} variant="contained" onClick={openRequestCreatePage}>
                       Создать заявку
                     </Button>
                   </Stack>
@@ -593,7 +704,7 @@ export default function App() {
                             Что сделать сейчас
                           </Typography>
                           <Stack spacing={1.25} sx={{ mt: 1.5 }}>
-                            <Button fullWidth variant="contained" startIcon={<AddIcon />} onClick={() => setCreateOpen(true)}>
+                            <Button fullWidth variant="contained" startIcon={<AddIcon />} onClick={openRequestCreatePage}>
                               Создать заявку
                             </Button>
                             <Button fullWidth variant="outlined" onClick={() => setSection('requests')}>
@@ -649,7 +760,7 @@ export default function App() {
                               {state.dashboard.recentRequests.map((request) => (
                                 <TableRow key={request.id} hover>
                                   <TableCell>
-                                    <Button onClick={() => setSelectedRequestId(request.id)}>{request.requestNumber}</Button>
+                                    <Button onClick={() => openRequestDetailsPage(request.id)}>{request.requestNumber}</Button>
                                   </TableCell>
                                   <TableCell>{request.requester?.fullName}</TableCell>
                                   <TableCell><StatusChip value={request.status} /></TableCell>
@@ -712,7 +823,7 @@ export default function App() {
                           {filteredRequests.map((request) => (
                             <TableRow key={request.id} hover>
                               <TableCell>
-                                <Button onClick={() => setSelectedRequestId(request.id)}>{request.requestNumber}</Button>
+                                <Button onClick={() => openRequestDetailsPage(request.id)}>{request.requestNumber}</Button>
                               </TableCell>
                               <TableCell>{request.requester?.fullName}</TableCell>
                               <TableCell>{request.department?.name}</TableCell>
@@ -1005,15 +1116,6 @@ export default function App() {
         </Container>
       </Box>
 
-      <RequestDialog
-        open={createOpen}
-        onClose={() => setCreateOpen(false)}
-        onSubmit={createRequest}
-        items={state.items}
-        requester={activeUser}
-        departments={state.departments}
-      />
-
       <ReceiveDialog
         open={receiveOpen}
         onClose={() => setReceiveOpen(false)}
@@ -1021,75 +1123,6 @@ export default function App() {
         items={state.items}
         actor={activeUser}
       />
-
-      <Drawer anchor="right" open={Boolean(selectedRequest)} onClose={() => setSelectedRequestId(null)}>
-        <Box sx={{ width: 'min(100vw, 1180px)', p: 3, height: '100vh', overflowY: 'auto' }}>
-          {selectedRequest ? (
-            <Grid container spacing={2.5}>
-              <Grid item xs={12} md={4}>
-                <Paper elevation={0} sx={{ p: 2.5, borderRadius: 2, border: '1px solid rgba(15, 23, 42, 0.08)', height: '100%' }}>
-                  <Stack spacing={2}>
-                    <Box>
-                      <Typography variant="h5">{selectedRequest.requestNumber}</Typography>
-                      <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-                        {selectedRequest.requester?.fullName} · {selectedRequest.department?.name}
-                      </Typography>
-                    </Box>
-                    <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-                      <StatusChip value={selectedRequest.status} />
-                      <StatusChip value={selectedRequest.priority} />
-                    </Stack>
-                    <Box>
-                      <Typography variant="subtitle2" color="text.secondary">
-                        Комментарий к заявке
-                      </Typography>
-                      <Typography sx={{ mt: 0.75, whiteSpace: 'pre-wrap' }}>
-                        {selectedRequest.comment || 'Комментарий не указан'}
-                      </Typography>
-                    </Box>
-                    {selectedRequest.rejectionReason ? (
-                      <Box>
-                        <Typography variant="subtitle2" color="text.secondary">
-                          Причина отклонения
-                        </Typography>
-                        <Typography sx={{ mt: 0.75, whiteSpace: 'pre-wrap' }}>
-                          {selectedRequest.rejectionReason}
-                        </Typography>
-                      </Box>
-                    ) : null}
-                    <Divider />
-                    <Box>
-                      <Typography variant="subtitle1" fontWeight={700} sx={{ mb: 1.5 }}>
-                        Состав заявки
-                      </Typography>
-                      <Stack spacing={1.25}>
-                        {selectedRequest.items.map((line) => (
-                          <Paper key={line.id} variant="outlined" sx={{ p: 1.5, borderRadius: 1.5 }}>
-                            <Stack spacing={0.5}>
-                              <Typography fontWeight={700}>{line.item?.name}</Typography>
-                              <Typography variant="body2" color="text.secondary">
-                                {line.quantityRequested} {line.item?.unit} · выдано {line.quantityIssued}
-                              </Typography>
-                              {line.note ? (
-                                <Typography variant="body2" color="text.secondary">
-                                  {line.note}
-                                </Typography>
-                              ) : null}
-                            </Stack>
-                          </Paper>
-                        ))}
-                      </Stack>
-                    </Box>
-                  </Stack>
-                </Paper>
-              </Grid>
-              <Grid item xs={12} md={8}>
-                <RequestChatPanel request={selectedRequest} currentUser={activeUser} />
-              </Grid>
-            </Grid>
-          ) : null}
-        </Box>
-      </Drawer>
 
       <Drawer anchor="right" open={Boolean(selectedItem)} onClose={() => setSelectedItemId(null)}>
         <Box sx={{ width: 420, p: 3 }}>

@@ -78,6 +78,45 @@ public class RequestService {
     }
 
     @Transactional
+    public SupplyRequest updateRequest(Long requestId, Long actorId, UpdateRequestCommand command) {
+        SupplyRequest request = getRequest(requestId);
+        SystemUser actor = userRepository.findById(actorId)
+                .orElseThrow(() -> new DomainNotFoundException("User not found: " + actorId));
+
+        if (request.getStatus() != RequestStatus.SUBMITTED) {
+            throw new IllegalStateException("Only submitted requests can be edited");
+        }
+
+        boolean isOwner = request.getRequester() != null && request.getRequester().getId().equals(actorId);
+        boolean isManager = actor.getRole() == com.github.danbel.shalukhinaapi.domain.UserRole.ADMIN
+                || actor.getRole() == com.github.danbel.shalukhinaapi.domain.UserRole.RESPONSIBLE;
+        if (!isOwner && !isManager) {
+            throw new org.springframework.security.access.AccessDeniedException("No access to edit this request");
+        }
+
+        Department department = departmentRepository.findById(command.departmentId())
+                .orElseThrow(() -> new DomainNotFoundException("Department not found: " + command.departmentId()));
+        request.setDepartment(department);
+        request.setPriority(command.priority() == null ? RequestPriority.NORMAL : command.priority());
+        request.setComment(command.comment());
+
+        request.getItems().clear();
+        for (CreateRequestItemCommand itemCommand : command.items()) {
+            SupplyItem item = itemRepository.findById(itemCommand.itemId())
+                    .orElseThrow(() -> new DomainNotFoundException("Item not found: " + itemCommand.itemId()));
+            SupplyRequestItem requestItem = new SupplyRequestItem();
+            requestItem.setRequest(request);
+            requestItem.setItem(item);
+            requestItem.setQuantityRequested(itemCommand.quantity());
+            requestItem.setQuantityIssued(BigDecimal.ZERO);
+            requestItem.setNote(itemCommand.note());
+            request.getItems().add(requestItem);
+        }
+
+        return requestRepository.save(request);
+    }
+
+    @Transactional
     public SupplyRequest approve(Long requestId, Long approverId, String comment) {
         SupplyRequest request = getRequest(requestId);
         SystemUser approver = userRepository.findById(approverId)
@@ -160,6 +199,14 @@ public class RequestService {
             Long itemId,
             BigDecimal quantity,
             String note
+    ) {
+    }
+
+    public record UpdateRequestCommand(
+            Long departmentId,
+            RequestPriority priority,
+            String comment,
+            List<CreateRequestItemCommand> items
     ) {
     }
 }
