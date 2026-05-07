@@ -88,6 +88,7 @@ const formatNumber = (value) =>
 function buildDashboard(state) {
   const lowStockItems = state.items.filter((item) => item.currentQuantity <= item.minQuantity);
   const approvedRequests = state.requests.filter((request) => request.status === 'APPROVED').length;
+  const purchaseWaitRequests = state.requests.filter((request) => request.status === 'PURCHASE_WAIT').length;
   const issuedRequests = state.requests.filter((request) => request.status === 'ISSUED').length;
   const submittedRequests = state.requests.filter((request) => request.status === 'SUBMITTED').length;
   const rejectedRequests = state.requests.filter((request) => request.status === 'REJECTED').length;
@@ -96,6 +97,7 @@ function buildDashboard(state) {
     totalRequests: state.requests.length,
     submittedRequests,
     approvedRequests,
+    purchaseWaitRequests,
     issuedRequests,
     rejectedRequests,
     lowStockItems: lowStockItems.length,
@@ -692,16 +694,19 @@ export default function App() {
             <Grid item xs={12} sm={6} md={3}>
               <StatCard title="Новые" value={state.dashboard.submittedRequests} hint="Ждут проверки" />
             </Grid>
-            <Grid item xs={12} sm={6} md={3}>
-              <StatCard title="Согласованы" value={state.dashboard.approvedRequests} hint="Готовы к выдаче" />
-            </Grid>
-            <Grid item xs={12} sm={6} md={3}>
-              <StatCard title="Выданы" value={state.dashboard.issuedRequests} hint="Закрытые заявки" />
-            </Grid>
-            <Grid item xs={12} sm={6} md={3}>
-              <StatCard title="Отклонены" value={state.dashboard.rejectedRequests} hint="Требуют уточнения" />
-            </Grid>
+          <Grid item xs={12} sm={6} md={3}>
+            <StatCard title="Согласованы" value={state.dashboard.approvedRequests} hint="Готовы к выдаче" />
           </Grid>
+          <Grid item xs={12} sm={6} md={3}>
+            <StatCard title="На закупке" value={state.dashboard.purchaseWaitRequests} hint="Ждут поставки" />
+          </Grid>
+          <Grid item xs={12} sm={6} md={3}>
+            <StatCard title="Выданы" value={state.dashboard.issuedRequests} hint="Закрытые заявки" />
+          </Grid>
+          <Grid item xs={12} sm={6} md={3}>
+            <StatCard title="Отклонены" value={state.dashboard.rejectedRequests} hint="Требуют уточнения" />
+          </Grid>
+        </Grid>
           <Paper elevation={0} sx={panelSx}>
             <Stack spacing={2}>
               <TextField fullWidth label="Поиск по заявке, ФИО или кабинету" value={search} onChange={(event) => setSearch(event.target.value)} />
@@ -719,6 +724,7 @@ export default function App() {
                       <MenuItem value="ALL">Все заявки</MenuItem>
                       <MenuItem value="SUBMITTED">Новые</MenuItem>
                       <MenuItem value="APPROVED">Согласованные</MenuItem>
+                      <MenuItem value="PURCHASE_WAIT">На закупке</MenuItem>
                       <MenuItem value="REJECTED">Отклоненные</MenuItem>
                       <MenuItem value="ISSUED">Выданные</MenuItem>
                     </Select>
@@ -759,7 +765,7 @@ export default function App() {
                                     </Button>
                                   </>
                                 )}
-                                {canManage && request.status === 'APPROVED' && (
+                                {canManage && (request.status === 'APPROVED' || request.status === 'PURCHASE_WAIT' || request.status === 'SUBMITTED') && (
                                   <Button size="small" variant="contained" onClick={() => issueRequest(request.id)}>
                                     Выдать
                                   </Button>
@@ -853,31 +859,6 @@ export default function App() {
                   </TableBody>
                 </Table>
               </TableContainer>
-            </Paper>
-          </Grid>
-          <Grid item xs={12} lg={4}>
-            <Paper elevation={0} sx={panelSx}>
-              <Typography variant="h6" sx={{ mb: 2 }}>
-                Последние движения
-              </Typography>
-              <Stack spacing={1.5}>
-                {recentMovements.map((movement) => (
-                  <Paper key={movement.id} variant="outlined" sx={{ p: 1.5, borderRadius: 1.5 }}>
-                    <Stack spacing={0.5}>
-                      <Stack direction="row" justifyContent="space-between">
-                        <Typography fontWeight={700}>{movement.item?.name}</Typography>
-                        <StatusChip value={movement.type} />
-                      </Stack>
-                      <Typography variant="body2" color="text.secondary">
-                        {movement.quantity} {movement.item?.unit} · {formatDateTime(movement.happenedAt)}
-                      </Typography>
-                      <Typography variant="body2" color="text.secondary">
-                        {movement.sourceDocument || 'Без документа'}
-                      </Typography>
-                    </Stack>
-                  </Paper>
-                ))}
-              </Stack>
             </Paper>
           </Grid>
         </Grid>

@@ -5,6 +5,7 @@ const statusMap = {
   DRAFT: { label: 'Черновик', color: 'default' },
   SUBMITTED: { label: 'Новая', color: 'warning' },
   APPROVED: { label: 'Согласована', color: 'info' },
+  PURCHASE_WAIT: { label: 'На закупке', color: 'secondary' },
   REJECTED: { label: 'Отклонена', color: 'error' },
   ISSUED: { label: 'Выдана', color: 'success' },
   CANCELLED: { label: 'Отменена', color: 'default' },

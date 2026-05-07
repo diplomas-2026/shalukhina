@@ -5,6 +5,7 @@ import { StatusChip } from './StatusChip';
 const columns = [
   { status: 'SUBMITTED', title: 'Новые' },
   { status: 'APPROVED', title: 'Согласованные' },
+  { status: 'PURCHASE_WAIT', title: 'На закупке' },
   { status: 'REJECTED', title: 'Отклоненные' },
   { status: 'ISSUED', title: 'Выданные' },
 ];

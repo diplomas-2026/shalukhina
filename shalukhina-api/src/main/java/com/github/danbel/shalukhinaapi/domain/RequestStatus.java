@@ -4,6 +4,7 @@ public enum RequestStatus {
     DRAFT,
     SUBMITTED,
     APPROVED,
+    PURCHASE_WAIT,
     REJECTED,
     ISSUED,
     CANCELLED

@@ -169,8 +169,10 @@ public class RequestService {
     @Transactional
     public SupplyRequest issue(Long requestId, Long actorId, String document) {
         SupplyRequest request = getRequest(requestId);
-        if (request.getStatus() != RequestStatus.APPROVED) {
-            throw new IllegalStateException("Only approved requests can be issued");
+        if (request.getStatus() == RequestStatus.REJECTED
+                || request.getStatus() == RequestStatus.CANCELLED
+                || request.getStatus() == RequestStatus.ISSUED) {
+            throw new IllegalStateException("Request cannot be issued in current status");
         }
 
         SystemUser actor = userRepository.findById(actorId)
