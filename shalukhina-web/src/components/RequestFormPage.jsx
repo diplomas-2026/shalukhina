@@ -54,6 +54,21 @@ export function RequestFormPage({ mode, request, items, requester, departments, 
     setLines(initialLines);
   }, [initialComment, initialDepartmentId, initialLines, initialPriority]);
 
+  useEffect(() => {
+    if (!items.length) {
+      return;
+    }
+
+    setLines((current) =>
+      current.map((line) => {
+        if (line.itemId) {
+          return line;
+        }
+        return { ...line, itemId: items[0].id };
+      }),
+    );
+  }, [items]);
+
   const canSubmit = useMemo(() => {
     return departmentId && lines.length > 0 && lines.every((line) => line.itemId && Number(line.quantity) > 0);
   }, [departmentId, lines]);
@@ -92,7 +107,7 @@ export function RequestFormPage({ mode, request, items, requester, departments, 
   };
 
   return (
-    <Stack spacing={2.5} sx={{ maxWidth: 1180, mx: 'auto' }}>
+    <Stack spacing={2.5} sx={{ maxWidth: 880, mx: 'auto', width: '100%' }}>
       <Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" spacing={2}>
         <Box>
           <Typography variant="h4">{isEdit ? 'Редактирование заявки' : 'Новая заявка'}</Typography>
@@ -122,10 +137,10 @@ export function RequestFormPage({ mode, request, items, requester, departments, 
           </Box>
 
           <Grid container spacing={2}>
-            <Grid item xs={12} md={6}>
+            <Grid item xs={12}>
               <TextField fullWidth label="Заявитель" value={requester?.fullName || ''} disabled />
             </Grid>
-            <Grid item xs={12} md={6}>
+            <Grid item xs={12}>
               <FormControl fullWidth>
                 <Typography variant="caption" color="text.secondary" sx={{ mb: 0.5 }}>
                   Кабинет / отдел
@@ -139,7 +154,7 @@ export function RequestFormPage({ mode, request, items, requester, departments, 
                 </Select>
               </FormControl>
             </Grid>
-            <Grid item xs={12} md={4}>
+            <Grid item xs={12}>
               <FormControl fullWidth>
                 <Typography variant="caption" color="text.secondary" sx={{ mb: 0.5 }}>
                   Срочность
@@ -152,7 +167,7 @@ export function RequestFormPage({ mode, request, items, requester, departments, 
                 </Select>
               </FormControl>
             </Grid>
-            <Grid item xs={12} md={8}>
+            <Grid item xs={12}>
               <TextField
                 fullWidth
                 label="Краткое пояснение"
@@ -190,8 +205,8 @@ export function RequestFormPage({ mode, request, items, requester, departments, 
               >
                 <DeleteIcon />
               </IconButton>
-              <Grid container spacing={2} sx={{ pr: 5 }}>
-                <Grid item xs={12} md={6}>
+              <Stack spacing={2} sx={{ pr: 5 }}>
+                <Box>
                   <FormControl fullWidth>
                     <Typography variant="caption" color="text.secondary" sx={{ mb: 0.5 }}>
                       Товар
@@ -204,8 +219,8 @@ export function RequestFormPage({ mode, request, items, requester, departments, 
                       ))}
                     </Select>
                   </FormControl>
-                </Grid>
-                <Grid item xs={12} sm={6} md={3}>
+                </Box>
+                <Box>
                   <TextField
                     fullWidth
                     type="number"
@@ -213,16 +228,16 @@ export function RequestFormPage({ mode, request, items, requester, departments, 
                     value={line.quantity}
                     onChange={(event) => updateLine(index, { quantity: event.target.value })}
                   />
-                </Grid>
-                <Grid item xs={12} sm={6} md={3}>
+                </Box>
+                <Box>
                   <TextField
                     fullWidth
                     label="Примечание"
                     value={line.note}
                     onChange={(event) => updateLine(index, { note: event.target.value })}
                   />
-                </Grid>
-              </Grid>
+                </Box>
+              </Stack>
             </Paper>
           ))}
         </Stack>
