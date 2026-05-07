@@ -1,0 +1,56 @@
+package com.github.danbel.shalukhinaapi.web;
+
+import com.github.danbel.shalukhinaapi.domain.SystemUser;
+import com.github.danbel.shalukhinaapi.repo.SystemUserRepository;
+import com.github.danbel.shalukhinaapi.service.DomainNotFoundException;
+import java.util.List;
+import lombok.RequiredArgsConstructor;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+@RestController
+@RequestMapping("/api/users")
+@RequiredArgsConstructor
+public class UserController {
+
+    private final SystemUserRepository repository;
+
+    @GetMapping
+    public List<SystemUser> list() {
+        return repository.findAll();
+    }
+
+    @GetMapping("/{id}")
+    public SystemUser get(@PathVariable Long id) {
+        return repository.findById(id).orElseThrow(() -> new DomainNotFoundException("User not found: " + id));
+    }
+
+    @PostMapping
+    public SystemUser create(@RequestBody SystemUser user) {
+        return repository.save(user);
+    }
+
+    @PutMapping("/{id}")
+    public SystemUser update(@PathVariable Long id, @RequestBody SystemUser payload) {
+        SystemUser user = get(id);
+        user.setFullName(payload.getFullName());
+        user.setEmail(payload.getEmail());
+        user.setUsername(payload.getUsername());
+        user.setRole(payload.getRole());
+        user.setDepartment(payload.getDepartment());
+        user.setPosition(payload.getPosition());
+        user.setActive(payload.isActive());
+        return repository.save(user);
+    }
+
+    @DeleteMapping("/{id}")
+    public void delete(@PathVariable Long id) {
+        repository.deleteById(id);
+    }
+}
