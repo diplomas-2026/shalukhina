@@ -55,9 +55,6 @@ public class ItemController {
         item.setSku(payload.getSku());
         item.setCategory(payload.getCategory());
         item.setUnit(payload.getUnit());
-        item.setCurrentQuantity(payload.getCurrentQuantity());
-        item.setMinQuantity(payload.getMinQuantity());
-        item.setStorageLocation(payload.getStorageLocation());
         item.setDescription(payload.getDescription());
         item.setActive(payload.isActive());
         return repository.save(item);
@@ -77,7 +74,7 @@ public class ItemController {
             HttpServletRequest request
     ) {
         SystemUser currentUser = currentUserResolver.requireUser(request);
-        return inventoryService.receive(id, command.quantity(), currentUser.getId(), command.document(), command.comment());
+        return inventoryService.receive(id, command.warehouseId(), command.quantity(), currentUser.getId(), command.document(), command.comment());
     }
 
     @PostMapping("/{id}/adjust")
@@ -88,12 +85,12 @@ public class ItemController {
             HttpServletRequest request
     ) {
         SystemUser currentUser = currentUserResolver.requireUser(request);
-        return inventoryService.adjust(id, command.quantityDelta(), currentUser.getId(), command.document(), command.comment());
+        return inventoryService.adjust(id, command.warehouseId(), command.quantityDelta(), currentUser.getId(), command.document(), command.comment());
     }
 
-    public record ReceiveItemCommand(BigDecimal quantity, Long actorId, String document, String comment) {
+    public record ReceiveItemCommand(Long warehouseId, BigDecimal quantity, Long actorId, String document, String comment) {
     }
 
-    public record AdjustItemCommand(BigDecimal quantityDelta, Long actorId, String document, String comment) {
+    public record AdjustItemCommand(Long warehouseId, BigDecimal quantityDelta, Long actorId, String document, String comment) {
     }
 }

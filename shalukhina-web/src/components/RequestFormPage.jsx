@@ -213,7 +213,7 @@ export function RequestFormPage({ mode, request, items, requester, departments, 
                     <Select value={line.itemId} onChange={(event) => updateLine(index, { itemId: Number(event.target.value) })}>
                       {items.map((item) => (
                         <MenuItem key={item.id} value={item.id}>
-                          {item.name} · {item.currentQuantity} {item.unit}
+                          {item.name}
                         </MenuItem>
                       ))}
                     </Select>

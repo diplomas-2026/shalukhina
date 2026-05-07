@@ -135,13 +135,13 @@ export function RequestDialog({ open, onClose, onSubmit, items, requester, depar
                       <Typography variant="caption" color="text.secondary" sx={{ mb: 0.5 }}>
                         Товар
                       </Typography>
-                    <Select value={line.itemId} onChange={(event) => updateLine(index, { itemId: Number(event.target.value) })}>
-                      {items.map((item) => (
-                        <MenuItem key={item.id} value={item.id}>
-                          {item.name} · {item.currentQuantity} {item.unit}
-                        </MenuItem>
-                      ))}
-                    </Select>
+                      <Select value={line.itemId} onChange={(event) => updateLine(index, { itemId: Number(event.target.value) })}>
+                        {items.map((item) => (
+                          <MenuItem key={item.id} value={item.id}>
+                            {item.name}
+                          </MenuItem>
+                        ))}
+                      </Select>
                   </FormControl>
                 </Grid>
                 <Grid item xs={12} md={2.5}>

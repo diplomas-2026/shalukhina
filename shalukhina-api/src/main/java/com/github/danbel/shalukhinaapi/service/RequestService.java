@@ -4,26 +4,23 @@ import com.github.danbel.shalukhinaapi.domain.Department;
 import com.github.danbel.shalukhinaapi.domain.RequestPriority;
 import com.github.danbel.shalukhinaapi.domain.RequestStatus;
 import com.github.danbel.shalukhinaapi.domain.RequestStatusHistory;
-import com.github.danbel.shalukhinaapi.domain.StockMovement;
-import com.github.danbel.shalukhinaapi.domain.StockMovementType;
 import com.github.danbel.shalukhinaapi.domain.SupplyItem;
 import com.github.danbel.shalukhinaapi.domain.SupplyRequest;
 import com.github.danbel.shalukhinaapi.domain.SupplyRequestItem;
 import com.github.danbel.shalukhinaapi.domain.SystemUser;
+import com.github.danbel.shalukhinaapi.domain.Warehouse;
 import com.github.danbel.shalukhinaapi.repo.DepartmentRepository;
 import com.github.danbel.shalukhinaapi.repo.RequestStatusHistoryRepository;
-import com.github.danbel.shalukhinaapi.repo.StockMovementRepository;
 import com.github.danbel.shalukhinaapi.repo.SupplyItemRepository;
 import com.github.danbel.shalukhinaapi.repo.SupplyRequestRepository;
 import com.github.danbel.shalukhinaapi.repo.SystemUserRepository;
+import com.github.danbel.shalukhinaapi.repo.WarehouseRepository;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.List;
-import java.util.concurrent.atomic.AtomicLong;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -36,8 +33,9 @@ public class RequestService {
     private final SupplyItemRepository itemRepository;
     private final SystemUserRepository userRepository;
     private final DepartmentRepository departmentRepository;
-    private final StockMovementRepository movementRepository;
     private final RequestStatusHistoryRepository statusHistoryRepository;
+    private final InventoryService inventoryService;
+    private final WarehouseRepository warehouseRepository;
 
     public List<SupplyRequest> listRequests() {
         return requestRepository.findAllByOrderByCreatedAtDesc();
@@ -132,7 +130,7 @@ public class RequestService {
         }
 
         if (command.status() == RequestStatus.ISSUED) {
-            return issueInternal(request, actor, command.note(), command.note());
+            return issueInternal(request, actor, command.warehouseId(), request.getRequestNumber(), command.note());
         }
 
         request.setStatus(command.status());
@@ -157,16 +155,17 @@ public class RequestService {
     @Transactional
     public SupplyRequest approve(Long requestId, Long approverId, String comment) {
         if (comment != null && !comment.isBlank()) {
-            return changeStatus(requestId, approverId, new ChangeStatusCommand(RequestStatus.APPROVED, comment));
+            return changeStatus(requestId, approverId, new ChangeStatusCommand(RequestStatus.APPROVED, comment, null));
         }
-        return changeStatus(requestId, approverId, new ChangeStatusCommand(RequestStatus.APPROVED, "Заявка согласована"));
+        return changeStatus(requestId, approverId, new ChangeStatusCommand(RequestStatus.APPROVED, "Заявка согласована", null));
     }
 
     @Transactional
     public SupplyRequest reject(Long requestId, Long approverId, String reason) {
         return changeStatus(requestId, approverId, new ChangeStatusCommand(
                 RequestStatus.REJECTED,
-                reason == null || reason.isBlank() ? "Заявка отклонена" : reason
+                reason == null || reason.isBlank() ? "Заявка отклонена" : reason,
+                null
         ));
     }
 
@@ -176,35 +175,23 @@ public class RequestService {
         SystemUser actor = userRepository.findById(actorId)
                 .orElseThrow(() -> new DomainNotFoundException("User not found: " + actorId));
 
-        return issueInternal(request, actor, document, document);
+        return issueInternal(request, actor, null, document, document);
     }
 
-    private SupplyRequest issueInternal(SupplyRequest request, SystemUser actor, String document, String note) {
+    private SupplyRequest issueInternal(SupplyRequest request, SystemUser actor, Long warehouseId, String document, String note) {
         if (request.getStatus() == RequestStatus.REJECTED
                 || request.getStatus() == RequestStatus.CANCELLED
                 || request.getStatus() == RequestStatus.ISSUED) {
             throw new IllegalStateException("Request cannot be issued in current status");
         }
 
-        for (SupplyRequestItem requestItem : request.getItems()) {
-            SupplyItem item = requestItem.getItem();
-            BigDecimal requested = requestItem.getQuantityRequested();
-            if (item.getCurrentQuantity().compareTo(requested) < 0) {
-                throw new IllegalStateException("Нельзя перевести заявку в статус \"Выдана\": на складе недостаточно товара \"" + item.getName() + "\"");
-            }
-            item.setCurrentQuantity(item.getCurrentQuantity().subtract(requested));
-            itemRepository.save(item);
-            requestItem.setQuantityIssued(requested);
+        Warehouse warehouse = warehouseId == null ? resolveWarehouseForIssue(request) : warehouseRepository.findById(warehouseId)
+                .orElseThrow(() -> new DomainNotFoundException("Warehouse not found: " + warehouseId));
 
-            StockMovement movement = new StockMovement();
-            movement.setType(StockMovementType.ISSUE);
-            movement.setItem(item);
-            movement.setQuantity(requested);
-            movement.setActor(actor);
-            movement.setRequest(request);
-            movement.setSourceDocument(document == null || document.isBlank() ? request.getRequestNumber() : document);
-            movement.setComment("Issue by approved request");
-            movementRepository.save(movement);
+        for (SupplyRequestItem requestItem : request.getItems()) {
+            BigDecimal requested = requestItem.getQuantityRequested();
+            inventoryService.decreaseStock(warehouse.getId(), requestItem.getItem().getId(), requested, actor, document, "Выдача по заявке");
+            requestItem.setQuantityIssued(requested);
         }
 
         request.setStatus(RequestStatus.ISSUED);
@@ -214,6 +201,16 @@ public class RequestService {
         String historyNote = note == null || note.isBlank() ? "Товары выданы" : note;
         addStatusHistory(savedRequest, actor, RequestStatus.ISSUED, historyNote);
         return savedRequest;
+    }
+
+    private Warehouse resolveWarehouseForIssue(SupplyRequest request) {
+        return warehouseRepository.findAllByOrderByNameAsc().stream()
+                .filter(warehouse -> request.getItems().stream().allMatch(requestItem -> {
+                    BigDecimal available = inventoryService.findStockForWarehouseAndItem(warehouse.getId(), requestItem.getItem().getId()).quantity();
+                    return available.compareTo(requestItem.getQuantityRequested()) >= 0;
+                }))
+                .findFirst()
+                .orElseThrow(() -> new IllegalStateException("Нельзя перевести заявку в статус \"Выдана\": на выбранном складе недостаточно товара для полной заявки"));
     }
 
     private void addStatusHistory(SupplyRequest request, SystemUser actor, RequestStatus status, String note) {
@@ -259,7 +256,8 @@ public class RequestService {
 
     public record ChangeStatusCommand(
             RequestStatus status,
-            String note
+            String note,
+            Long warehouseId
     ) {
     }
 }

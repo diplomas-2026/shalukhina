@@ -67,6 +67,7 @@ export const api = {
   rejectRequest: (id, body) => request(`/api/requests/${id}/reject`, { method: 'POST', body: JSON.stringify(body) }),
   issueRequest: (id, body) => request(`/api/requests/${id}/issue`, { method: 'POST', body: JSON.stringify(body) }),
   getItems: () => request('/api/items'),
+  getStockBalances: () => request('/api/inventory/balances'),
   createItem: (body) => request('/api/items', { method: 'POST', body: JSON.stringify(body) }),
   receiveItem: (id, body) => request(`/api/items/${id}/receive`, { method: 'POST', body: JSON.stringify(body) }),
   getPurchases: () => request('/api/purchases'),

@@ -23,6 +23,12 @@ public class InventoryController {
         return inventoryService.listItems();
     }
 
+    @GetMapping("/balances")
+    @PreAuthorize("isAuthenticated()")
+    public List<InventoryService.WarehouseStockView> balances() {
+        return inventoryService.listBalances();
+    }
+
     @GetMapping("/movements")
     @PreAuthorize("isAuthenticated()")
     public List<StockMovement> movements() {

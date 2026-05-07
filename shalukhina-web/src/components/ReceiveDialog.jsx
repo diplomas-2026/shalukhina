@@ -53,7 +53,7 @@ export function ReceiveDialog({ open, onClose, onSubmit, items, actor }) {
                 <Select value={itemId} onChange={(event) => setItemId(Number(event.target.value))}>
                   {items.map((item) => (
                     <MenuItem key={item.id} value={item.id}>
-                      {item.name} · остаток {item.currentQuantity} {item.unit}
+                      {item.name}
                     </MenuItem>
                   ))}
                 </Select>

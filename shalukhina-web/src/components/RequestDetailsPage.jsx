@@ -1,5 +1,5 @@
-import React, { useMemo } from 'react';
-import { Alert, Box, Button, Chip, CircularProgress, Paper, Stack, Typography } from '@mui/material';
+import React, { useMemo, useState } from 'react';
+import { Alert, Box, Button, Chip, CircularProgress, FormControl, MenuItem, Paper, Select, Stack, Typography } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import EditIcon from '@mui/icons-material/Edit';
 import { StatusChip } from './StatusChip';
@@ -14,6 +14,8 @@ const formatDateTime = (value) =>
 export function RequestDetailsPage({
   request,
   currentUser,
+  warehouses = [],
+  stockBalances = [],
   onBack,
   onEdit,
   onCreatePurchase,
@@ -27,11 +29,21 @@ export function RequestDetailsPage({
   const canManage = currentUser?.role === 'ADMIN' || currentUser?.role === 'RESPONSIBLE';
   const isStatusChanging = statusChangingRequestId === request.id;
   const canCreatePurchase = canManage && request.status === 'PURCHASE_WAIT' && typeof onCreatePurchase === 'function';
+  const defaultWarehouseId = warehouses[0]?.id ? String(warehouses[0].id) : '';
+  const [selectedWarehouseId, setSelectedWarehouseId] = useState(defaultWarehouseId);
+
+  React.useEffect(() => {
+    if (!selectedWarehouseId && defaultWarehouseId) {
+      setSelectedWarehouseId(defaultWarehouseId);
+    }
+  }, [defaultWarehouseId, selectedWarehouseId]);
 
   const stockLines = useMemo(
     () =>
       request.items.map((line) => {
-        const available = Number(line.item?.currentQuantity || 0);
+        const available = stockBalances
+          .filter((stock) => String(stock.itemId) === String(line.item?.id) && String(stock.warehouseId) === String(selectedWarehouseId))
+          .reduce((sum, stock) => sum + Number(stock.quantity || 0), 0);
         const requested = Number(line.quantityRequested || 0);
         const shortage = Math.max(requested - available, 0);
         return {
@@ -41,14 +53,14 @@ export function RequestDetailsPage({
           shortage,
         };
       }),
-    [request.items],
+    [request.items, stockBalances, selectedWarehouseId],
   );
 
   const hasShortage = stockLines.some((line) => line.shortage > 0);
 
   const changeStatus = (status) => {
     if (onChangeStatus) {
-      onChangeStatus(request.id, status);
+      onChangeStatus(request.id, status, status === 'ISSUED' ? { warehouseId: selectedWarehouseId } : {});
     }
   };
 
@@ -115,9 +127,24 @@ export function RequestDetailsPage({
             <Box>
               <Typography variant="h6">Складской сценарий</Typography>
               <Typography variant="body2" color="text.secondary">
-                Если на складе хватает товара, можно выдать сразу. Если нет, отправьте заявку на закупку и вернитесь к ней позже.
+                Если на выбранном складе хватает товара, можно выдать сразу. Если нет, отправьте заявку на закупку и вернитесь к ней позже.
               </Typography>
             </Box>
+
+            {warehouses.length > 0 ? (
+              <FormControl fullWidth>
+                <Typography variant="caption" color="text.secondary" sx={{ mb: 0.5 }}>
+                  Склад выдачи
+                </Typography>
+                <Select value={selectedWarehouseId} onChange={(event) => setSelectedWarehouseId(String(event.target.value))}>
+                  {warehouses.map((warehouse) => (
+                    <MenuItem key={warehouse.id} value={String(warehouse.id)}>
+                      {warehouse.name}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            ) : null}
 
             <Stack spacing={1.25}>
               {stockLines.map((line) => (
@@ -137,7 +164,7 @@ export function RequestDetailsPage({
                       />
                     </Stack>
                     <Typography variant="body2" color="text.secondary">
-                      На складе: {line.available} {line.item?.unit} · Выдано: {line.quantityIssued}
+                      На выбранном складе: {line.available} {line.item?.unit} · Выдано: {line.quantityIssued}
                     </Typography>
                     {line.note ? (
                       <Typography variant="body2" color="text.secondary">

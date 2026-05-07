@@ -3,7 +3,6 @@ package com.github.danbel.shalukhinaapi.web;
 import com.github.danbel.shalukhinaapi.domain.Department;
 import com.github.danbel.shalukhinaapi.domain.RequestPriority;
 import com.github.danbel.shalukhinaapi.domain.RequestStatus;
-import com.github.danbel.shalukhinaapi.domain.StockMovementType;
 import com.github.danbel.shalukhinaapi.domain.PurchaseOrder;
 import com.github.danbel.shalukhinaapi.domain.PurchaseOrderStatus;
 import com.github.danbel.shalukhinaapi.domain.SupplyCategory;
@@ -18,11 +17,11 @@ import com.github.danbel.shalukhinaapi.repo.DepartmentRepository;
 import com.github.danbel.shalukhinaapi.repo.RequestChatMessageRepository;
 import com.github.danbel.shalukhinaapi.repo.PurchaseOrderRepository;
 import com.github.danbel.shalukhinaapi.repo.SupplyRequestRepository;
-import com.github.danbel.shalukhinaapi.repo.StockMovementRepository;
 import com.github.danbel.shalukhinaapi.repo.SupplyCategoryRepository;
 import com.github.danbel.shalukhinaapi.repo.SupplyItemRepository;
 import com.github.danbel.shalukhinaapi.repo.SystemUserRepository;
 import com.github.danbel.shalukhinaapi.repo.WarehouseRepository;
+import com.github.danbel.shalukhinaapi.service.InventoryService;
 import com.github.danbel.shalukhinaapi.service.RequestService;
 import com.github.danbel.shalukhinaapi.service.PurchaseOrderService;
 import java.math.BigDecimal;
@@ -44,9 +43,9 @@ public class SeedDataInitializer implements CommandLineRunner {
     private final RequestChatMessageRepository chatMessageRepository;
     private final PurchaseOrderRepository purchaseOrderRepository;
     private final WarehouseRepository warehouseRepository;
-    private final StockMovementRepository movementRepository;
     private final RequestService requestService;
     private final PurchaseOrderService purchaseOrderService;
+    private final InventoryService inventoryService;
     private final PasswordEncoder passwordEncoder;
 
     @Override
@@ -171,15 +170,25 @@ public class SeedDataInitializer implements CommandLineRunner {
         warehouseRepository.saveAll(List.of(mainWarehouse, reserveWarehouse, schoolWarehouse));
 
         List<SupplyItem> items = itemRepository.saveAll(List.of(
-                buildItem("Бумага A4", "A4-001", paper, "пачка", new BigDecimal("48"), new BigDecimal("10"), mainWarehouse.getName()),
-                buildItem("Ручка шариковая синяя", "PEN-002", writing, "шт", new BigDecimal("180"), new BigDecimal("30"), mainWarehouse.getName()),
-                buildItem("Карандаш HB", "PEN-003", writing, "шт", new BigDecimal("96"), new BigDecimal("20"), schoolWarehouse.getName()),
-                buildItem("Папка-скоросшиватель", "FIL-004", filing, "шт", new BigDecimal("64"), new BigDecimal("15"), reserveWarehouse.getName()),
-                buildItem("Файл прозрачный", "FIL-005", filing, "шт", new BigDecimal("240"), new BigDecimal("60"), reserveWarehouse.getName()),
-                buildItem("Стикеры", "OFF-006", paper, "упак", new BigDecimal("18"), new BigDecimal("5"), mainWarehouse.getName()),
-                buildItem("Маркеры для доски", "PRES-007", presentation, "набор", new BigDecimal("22"), new BigDecimal("6"), schoolWarehouse.getName()),
-                buildItem("Блокнот А5", "NOTE-008", paper, "шт", new BigDecimal("35"), new BigDecimal("12"), mainWarehouse.getName())
+                buildItem("Бумага A4", "A4-001", paper, "пачка"),
+                buildItem("Ручка шариковая синяя", "PEN-002", writing, "шт"),
+                buildItem("Карандаш HB", "PEN-003", writing, "шт"),
+                buildItem("Папка-скоросшиватель", "FIL-004", filing, "шт"),
+                buildItem("Файл прозрачный", "FIL-005", filing, "шт"),
+                buildItem("Стикеры", "OFF-006", paper, "упак"),
+                buildItem("Маркеры для доски", "PRES-007", presentation, "набор"),
+                buildItem("Блокнот А5", "NOTE-008", paper, "шт")
         ));
+
+        inventoryService.increaseStock(mainWarehouse.getId(), items.get(0).getId(), new BigDecimal("48"), admin, "Стартовый остаток", "Начальное наполнение склада");
+        inventoryService.increaseStock(mainWarehouse.getId(), items.get(1).getId(), new BigDecimal("180"), admin, "Стартовый остаток", "Начальное наполнение склада");
+        inventoryService.increaseStock(schoolWarehouse.getId(), items.get(2).getId(), new BigDecimal("96"), admin, "Стартовый остаток", "Начальное наполнение склада");
+        inventoryService.increaseStock(reserveWarehouse.getId(), items.get(3).getId(), new BigDecimal("64"), admin, "Стартовый остаток", "Начальное наполнение склада");
+        inventoryService.increaseStock(reserveWarehouse.getId(), items.get(4).getId(), new BigDecimal("240"), admin, "Стартовый остаток", "Начальное наполнение склада");
+        inventoryService.increaseStock(mainWarehouse.getId(), items.get(5).getId(), new BigDecimal("18"), admin, "Стартовый остаток", "Начальное наполнение склада");
+        inventoryService.increaseStock(schoolWarehouse.getId(), items.get(6).getId(), new BigDecimal("22"), admin, "Стартовый остаток", "Начальное наполнение склада");
+        inventoryService.increaseStock(mainWarehouse.getId(), items.get(7).getId(), new BigDecimal("35"), admin, "Стартовый остаток", "Начальное наполнение склада");
+        inventoryService.increaseStock(mainWarehouse.getId(), items.get(6).getId(), new BigDecimal("10"), admin, "Стартовый остаток", "Начальное наполнение склада");
 
         createSeedRequest(employee, servicesDepartment, RequestPriority.NORMAL, "Запрос на текущую неделю", List.of(
                 new RequestLine(items.get(0), new BigDecimal("2"), "Для принтера"),
@@ -203,10 +212,10 @@ public class SeedDataInitializer implements CommandLineRunner {
         ));
         requestService.reject(rejectedRequest.getId(), responsible.getId(), "Отложено до следующего периода");
 
-        movementRepository.save(buildMovement(items.get(0), new BigDecimal("20"), admin, StockMovementType.RECEIPT, "Поступление №15", "Поставка от поставщика"));
-        movementRepository.save(buildMovement(items.get(1), new BigDecimal("50"), accountant, StockMovementType.RECEIPT, "Поступление №16", "Пополнение шариковых ручек"));
-        movementRepository.save(buildMovement(items.get(6), new BigDecimal("12"), responsible, StockMovementType.RECEIPT, "Поступление №17", "Маркерные наборы"));
-        movementRepository.save(buildMovement(items.get(0), new BigDecimal("4"), responsible, StockMovementType.ADJUSTMENT, "Инвентаризация", "Корректировка по итогам сверки"));
+        inventoryService.increaseStock(mainWarehouse.getId(), items.get(0).getId(), new BigDecimal("20"), admin, "Поступление №15", "Поставка от поставщика");
+        inventoryService.increaseStock(mainWarehouse.getId(), items.get(1).getId(), new BigDecimal("50"), accountant, "Поступление №16", "Пополнение шариковых ручек");
+        inventoryService.increaseStock(schoolWarehouse.getId(), items.get(6).getId(), new BigDecimal("12"), responsible, "Поступление №17", "Маркерные наборы");
+        inventoryService.adjust(items.get(0).getId(), mainWarehouse.getId(), new BigDecimal("4"), responsible.getId(), "Инвентаризация", "Корректировка по итогам сверки");
     }
 
     private void seedChatData() {
@@ -293,15 +302,12 @@ public class SeedDataInitializer implements CommandLineRunner {
         ));
     }
 
-    private SupplyItem buildItem(String name, String sku, SupplyCategory category, String unit, BigDecimal quantity, BigDecimal minQuantity, String location) {
+    private SupplyItem buildItem(String name, String sku, SupplyCategory category, String unit) {
         SupplyItem item = new SupplyItem();
         item.setName(name);
         item.setSku(sku);
         item.setCategory(category);
         item.setUnit(unit);
-        item.setCurrentQuantity(quantity);
-        item.setMinQuantity(minQuantity);
-        item.setStorageLocation(location);
         item.setDescription(name + " для нужд учреждения");
         return item;
     }
@@ -326,24 +332,6 @@ public class SeedDataInitializer implements CommandLineRunner {
                         .toList()
         );
         return requestService.createRequest(command);
-    }
-
-    private com.github.danbel.shalukhinaapi.domain.StockMovement buildMovement(
-            SupplyItem item,
-            BigDecimal quantity,
-            SystemUser actor,
-            StockMovementType type,
-            String sourceDocument,
-            String comment
-    ) {
-        com.github.danbel.shalukhinaapi.domain.StockMovement movement = new com.github.danbel.shalukhinaapi.domain.StockMovement();
-        movement.setItem(item);
-        movement.setQuantity(quantity);
-        movement.setActor(actor);
-        movement.setType(type);
-        movement.setSourceDocument(sourceDocument);
-        movement.setComment(comment);
-        return movement;
     }
 
     private RequestChatMessage buildChatMessage(SupplyRequest request, SystemUser sender, String text) {

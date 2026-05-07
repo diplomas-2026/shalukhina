@@ -3,13 +3,10 @@ package com.github.danbel.shalukhinaapi.service;
 import com.github.danbel.shalukhinaapi.domain.PurchaseOrder;
 import com.github.danbel.shalukhinaapi.domain.PurchaseOrderItem;
 import com.github.danbel.shalukhinaapi.domain.PurchaseOrderStatus;
-import com.github.danbel.shalukhinaapi.domain.StockMovement;
-import com.github.danbel.shalukhinaapi.domain.StockMovementType;
 import com.github.danbel.shalukhinaapi.domain.SupplyItem;
 import com.github.danbel.shalukhinaapi.domain.SystemUser;
 import com.github.danbel.shalukhinaapi.domain.Warehouse;
 import com.github.danbel.shalukhinaapi.repo.PurchaseOrderRepository;
-import com.github.danbel.shalukhinaapi.repo.StockMovementRepository;
 import com.github.danbel.shalukhinaapi.repo.SupplyItemRepository;
 import com.github.danbel.shalukhinaapi.repo.SystemUserRepository;
 import com.github.danbel.shalukhinaapi.repo.WarehouseRepository;
@@ -29,7 +26,7 @@ public class PurchaseOrderService {
     private final SupplyItemRepository itemRepository;
     private final SystemUserRepository userRepository;
     private final WarehouseRepository warehouseRepository;
-    private final StockMovementRepository movementRepository;
+    private final InventoryService inventoryService;
 
     public List<PurchaseOrder> listOrders() {
         return purchaseOrderRepository.findAllByOrderByCreatedAtDesc();
@@ -96,20 +93,22 @@ public class PurchaseOrderService {
     }
 
     private void completeOrder(PurchaseOrder order, SystemUser actor, String note) {
+        Warehouse warehouse = order.getDeliveryWarehouse();
+        if (warehouse == null) {
+            warehouse = warehouseRepository.findAllByOrderByNameAsc().stream()
+                    .findFirst()
+                    .orElseThrow(() -> new DomainNotFoundException("Warehouse not found"));
+        }
         for (PurchaseOrderItem orderItem : order.getItems()) {
-            SupplyItem item = orderItem.getItem();
             BigDecimal quantity = orderItem.getQuantityOrdered();
-            item.setCurrentQuantity(item.getCurrentQuantity().add(quantity));
-            itemRepository.save(item);
-
-            StockMovement movement = new StockMovement();
-            movement.setType(StockMovementType.RECEIPT);
-            movement.setItem(item);
-            movement.setQuantity(quantity);
-            movement.setActor(actor);
-            movement.setSourceDocument(order.getOrderNumber());
-            movement.setComment(note == null || note.isBlank() ? "Поступление по закупке" : note);
-            movementRepository.save(movement);
+            inventoryService.increaseStock(
+                    warehouse.getId(),
+                    orderItem.getItem().getId(),
+                    quantity,
+                    actor,
+                    order.getOrderNumber(),
+                    note == null || note.isBlank() ? "Поступление по закупке" : note
+            );
         }
     }
 

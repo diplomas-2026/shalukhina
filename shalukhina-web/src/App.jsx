@@ -135,12 +135,19 @@ function downloadWorkbook(fileName, sheets) {
 }
 
 function buildDashboard(state) {
-  const lowStockItems = state.items.filter((item) => item.currentQuantity <= item.minQuantity);
+  const stockByItemId = (state.stocks || []).reduce((acc, stock) => {
+    const next = Number(stock.quantity || 0);
+    acc[stock.itemId] = (acc[stock.itemId] || 0) + next;
+    return acc;
+  }, {});
   const approvedRequests = state.requests.filter((request) => request.status === 'APPROVED').length;
   const purchaseWaitRequests = state.requests.filter((request) => request.status === 'PURCHASE_WAIT').length;
   const issuedRequests = state.requests.filter((request) => request.status === 'ISSUED').length;
   const submittedRequests = state.requests.filter((request) => request.status === 'SUBMITTED').length;
   const rejectedRequests = state.requests.filter((request) => request.status === 'REJECTED').length;
+  const stockTotals = state.items.map((item) => (state.stocks || [])
+    .filter((stock) => stock.itemId === item.id)
+    .reduce((sum, stock) => sum + Number(stock.quantity || 0), 0));
 
   return {
     totalRequests: state.requests.length,
@@ -149,9 +156,9 @@ function buildDashboard(state) {
     purchaseWaitRequests,
     issuedRequests,
     rejectedRequests,
-    lowStockItems: lowStockItems.length,
+    lowStockItems: stockTotals.filter((quantity) => quantity <= 0).length,
     recentRequests: state.requests.slice().sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)).slice(0, 5),
-    criticalItems: state.items.slice().sort((a, b) => a.currentQuantity - b.currentQuantity).slice(0, 5),
+    criticalItems: state.items.slice().sort((a, b) => (stockByItemId[a.id] || 0) - (stockByItemId[b.id] || 0)).slice(0, 5),
   };
 }
 
@@ -162,6 +169,7 @@ function createEmptyState() {
     categories: [],
     warehouses: [],
     items: [],
+    stocks: [],
     requests: [],
     movements: [],
     purchases: [],
@@ -181,6 +189,7 @@ function normalizeApiState(payload) {
     categories: payload.categories || [],
     warehouses: payload.warehouses || [],
     items: payload.items || [],
+    stocks: payload.stocks || [],
     requests: payload.requests || [],
     movements: payload.movements || [],
     purchases: payload.purchases || [],
@@ -235,14 +244,22 @@ export default function App() {
   const purchases = state.purchases || [];
   const categories = state.categories || [];
   const warehouses = state.warehouses || [];
+  const stockBalances = state.stocks || [];
+  const stockQuantityByItemId = useMemo(
+    () => stockBalances.reduce((acc, stock) => {
+      acc[stock.itemId] = (acc[stock.itemId] || 0) + Number(stock.quantity || 0);
+      return acc;
+    }, {}),
+    [stockBalances],
+  );
   const employeeRequests = useMemo(
     () => state.requests.filter((request) => request.requester?.id === activeUser?.id),
     [state.requests, activeUser?.id],
   );
   const visibleRequests = isEmployee ? employeeRequests : state.requests;
-  const lowStockItems = useMemo(
-    () => state.items.filter((item) => item.currentQuantity <= item.minQuantity),
-    [state.items],
+  const emptyStockItems = useMemo(
+    () => state.items.filter((item) => (stockQuantityByItemId[item.id] || 0) <= 0),
+    [state.items, stockQuantityByItemId],
   );
   const pendingRequests = useMemo(
     () => state.requests.filter((request) => request.status === 'SUBMITTED'),
@@ -306,6 +323,7 @@ export default function App() {
     const departments = await api.getDepartments();
     const categories = await api.getCategories();
     const warehouses = await api.getWarehouses();
+    const stocks = await api.getStockBalances();
     const movements = await api.getMovements();
     const purchases = await api.getPurchases();
     const dashboard = await api.getDashboard();
@@ -319,6 +337,7 @@ export default function App() {
       departments,
       categories,
       warehouses,
+      stocks,
       movements,
       purchases,
     };
@@ -459,21 +478,26 @@ export default function App() {
     await runApiAction(() => api.rejectRequest(requestId, body), 'Заявка отклонена');
   };
 
-  const issueRequest = async (requestId) => {
-    const body = { actorId: activeUser.id, document: `REQ-${requestId}` };
+  const issueRequest = async (requestId, warehouseId = null) => {
+    const body = { actorId: activeUser.id, document: `REQ-${requestId}`, warehouseId: warehouseId ? Number(warehouseId) : null };
     await runApiAction(() => api.issueRequest(requestId, body), 'Товары выданы');
   };
 
-  const moveRequestStatus = async (requestId, nextStatus) => {
+  const moveRequestStatus = async (requestId, nextStatus, options = {}) => {
     setStatusChangingRequestId(requestId);
     const noteByStatus = {
       APPROVED: 'Согласовано через канбан',
       REJECTED: 'Отклонено через канбан',
       ISSUED: 'Выдано через канбан',
     };
+    const warehouseId = options.warehouseId || null;
     try {
       await runApiAction(
-        () => api.changeRequestStatus(requestId, { status: nextStatus, note: noteByStatus[nextStatus] || 'Изменено через канбан' }),
+        () => api.changeRequestStatus(requestId, {
+          status: nextStatus,
+          note: noteByStatus[nextStatus] || 'Изменено через канбан',
+          warehouseId: warehouseId ? Number(warehouseId) : null,
+        }),
         'Статус заявки изменен',
       );
     } finally {
@@ -524,15 +548,13 @@ export default function App() {
           quantity: line.quantityRequested || line.quantity || 1,
         })),
       );
-      const firstItemWarehouseName = itemOrOptions.items[0]?.item?.storageLocation;
-      const requestWarehouseName = itemOrOptions.deliveryWarehouse?.name || itemOrOptions.deliveryLocation || firstItemWarehouseName;
-      const matchedWarehouse = warehouses.find((warehouse) => warehouse.name === requestWarehouseName);
-      setPurchaseInitialWarehouseId(String(matchedWarehouse?.id || defaultWarehouse?.id || ''));
-    } else if (itemOrOptions) {
-      const deficit = Math.max(Number(itemOrOptions.minQuantity || 0) - Number(itemOrOptions.currentQuantity || 0), 1);
-      setPurchaseInitialItems([{ itemId: itemOrOptions.id, quantity: deficit }]);
-      const matchedWarehouse = warehouses.find((warehouse) => warehouse.name === itemOrOptions.storageLocation);
-      setPurchaseInitialWarehouseId(String(matchedWarehouse?.id || defaultWarehouse?.id || ''));
+      setPurchaseInitialWarehouseId(String(itemOrOptions.deliveryWarehouse?.id || defaultWarehouse?.id || ''));
+    } else if (itemOrOptions?.itemId) {
+      setPurchaseInitialItems([{ itemId: itemOrOptions.itemId, quantity: 1 }]);
+      setPurchaseInitialWarehouseId(String(itemOrOptions.warehouseId || defaultWarehouse?.id || ''));
+    } else if (itemOrOptions?.id) {
+      setPurchaseInitialItems([{ itemId: itemOrOptions.id, quantity: 1 }]);
+      setPurchaseInitialWarehouseId(String(defaultWarehouse?.id || ''));
     } else {
       setPurchaseInitialItems([]);
       setPurchaseInitialWarehouseId(String(defaultWarehouse?.id || ''));
@@ -567,15 +589,13 @@ export default function App() {
 
   const exportInventoryReport = () => {
     downloadWorkbook('otchet-sklad.xlsx', {
-      'Склад': state.items.map((item) => ({
-        'Товар': item.name,
-        'SKU': item.sku || '',
-        'Категория': item.category?.name || '',
-        'Остаток': Number(item.currentQuantity || 0),
-        'Ед. изм.': item.unit || '',
-        'Склад': item.storageLocation || '',
-        'Описание': item.description || '',
-        'Статус': Number(item.currentQuantity || 0) <= Number(item.minQuantity || 0) ? 'Нужно пополнить' : 'Нормально',
+      'Склад': stockBalances.map((stock) => ({
+        'Склад': stock.warehouseName || '',
+        'Товар': stock.itemName || '',
+        'SKU': stock.itemSku || '',
+        'Категория': stock.categoryName || '',
+        'Остаток': Number(stock.quantity || 0),
+        'Ед. изм.': stock.itemUnit || '',
       })),
     });
   };
@@ -619,11 +639,13 @@ export default function App() {
         'Позиций': request.items?.length || 0,
         'Дата создания': formatDateTime(request.createdAt),
       })),
-      'Склад': state.items.map((item) => ({
-        'Товар': item.name,
-        'Остаток': Number(item.currentQuantity || 0),
-        'Ед. изм.': item.unit || '',
-        'Склад': item.storageLocation || '',
+      'Склад': stockBalances.map((stock) => ({
+        'Склад': stock.warehouseName || '',
+        'Товар': stock.itemName || '',
+        'SKU': stock.itemSku || '',
+        'Категория': stock.categoryName || '',
+        'Остаток': Number(stock.quantity || 0),
+        'Ед. изм.': stock.itemUnit || '',
       })),
       'Закупки': state.purchases.map((purchase) => ({
         'Номер': purchase.orderNumber,
@@ -674,9 +696,6 @@ export default function App() {
       sku: payload.sku,
       category: payload.category,
       unit: payload.unit,
-      currentQuantity: payload.currentQuantity,
-      minQuantity: payload.minQuantity,
-      storageLocation: payload.storageLocation,
       description: payload.description,
       active: payload.active,
     };
@@ -839,6 +858,8 @@ export default function App() {
         <RequestDetailsPage
           request={routeRequest}
           currentUser={activeUser}
+          warehouses={warehouses}
+          stockBalances={stockBalances}
           onBack={() => navigate('/')}
           onEdit={canEditRequest ? () => navigate(`/requests/${routeRequest.id}/edit`) : null}
           onCreatePurchase={openPurchaseDialog}
@@ -918,7 +939,7 @@ export default function App() {
               <StatCard title="Готовы к выдаче" value={state.dashboard.approvedRequests} hint="Можно выдавать" />
             </Grid>
             <Grid item xs={12} sm={6} md={3}>
-              <StatCard title="Нужно пополнить" value={state.dashboard.lowStockItems} hint="Остаток ниже нормы" />
+              <StatCard title="Пустые позиции" value={state.dashboard.lowStockItems} hint="На складе нет остатка" />
             </Grid>
           </Grid>
 
@@ -1076,10 +1097,10 @@ export default function App() {
         {message ? <Alert severity="info">{message}</Alert> : null}
         <Grid container spacing={2.5}>
           <Grid item xs={12} sm={6} md={3}>
-            <StatCard title="Позиций на складе" value={state.items.length} hint="Все товары в системе" />
+            <StatCard title="Товаров в каталоге" value={state.items.length} hint="Справочник товаров" />
           </Grid>
           <Grid item xs={12} sm={6} md={3}>
-            <StatCard title="Нуждаются в пополнении" value={lowStockItems.length} hint="Ниже нормы" />
+            <StatCard title="Пустые позиции" value={emptyStockItems.length} hint="Товаров нет на складе" />
           </Grid>
           <Grid item xs={12} sm={6} md={3}>
             <StatCard title="Закупок в работе" value={openPurchasesCount} hint="Драфты, заказы, в пути" />
@@ -1096,7 +1117,7 @@ export default function App() {
                 <Box>
                   <Typography variant="h6">Остатки на складе</Typography>
                   <Typography variant="body2" color="text.secondary">
-                    Здесь видно текущий остаток по каждому товару. Если чего-то не хватает, можно сразу оформить закупку.
+                    Здесь видно остатки по каждому складу. Если товара не хватает, можно сразу оформить закупку.
                   </Typography>
                 </Box>
                 <Button variant="contained" onClick={() => openPurchaseDialog()}>
@@ -1107,37 +1128,32 @@ export default function App() {
                 <Table size="small">
                   <TableHead>
                     <TableRow>
+                      <TableCell>Склад</TableCell>
                       <TableCell>Товар</TableCell>
                       <TableCell>Категория</TableCell>
                       <TableCell>Остаток</TableCell>
-                      <TableCell>Склад</TableCell>
                       <TableCell align="right">Действия</TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>
-                    {state.items.map((item) => {
-                      const isLow = item.currentQuantity <= item.minQuantity;
+                    {stockBalances.map((stock) => {
                       return (
-                        <TableRow key={item.id} hover>
+                        <TableRow key={stock.id} hover>
+                          <TableCell>{stock.warehouseName}</TableCell>
                           <TableCell>
                             <Stack>
-                              <Typography fontWeight={700}>{item.name}</Typography>
+                              <Typography fontWeight={700}>{stock.itemName}</Typography>
                               <Typography variant="body2" color="text.secondary">
-                                {item.sku}
+                                {stock.itemSku}
                               </Typography>
                             </Stack>
                           </TableCell>
-                          <TableCell>{item.category?.name}</TableCell>
+                          <TableCell>{stock.categoryName || 'Без категории'}</TableCell>
                           <TableCell>
-                            <Chip
-                              label={`${formatNumber(item.currentQuantity)} ${item.unit}`}
-                              color={isLow ? 'warning' : 'success'}
-                              variant="outlined"
-                            />
+                            <Chip label={`${formatNumber(stock.quantity)} ${stock.itemUnit}`} color={Number(stock.quantity) <= 0 ? 'warning' : 'success'} variant="outlined" />
                           </TableCell>
-                          <TableCell>{item.storageLocation}</TableCell>
                           <TableCell align="right">
-                            <Button size="small" variant="outlined" onClick={() => openPurchaseDialog(item)}>
+                            <Button size="small" variant="outlined" onClick={() => openPurchaseDialog(stock)}>
                               Заказать
                             </Button>
                           </TableCell>
@@ -1278,7 +1294,6 @@ export default function App() {
         items={state.items}
         categories={categories}
         departments={state.departments}
-        warehouses={warehouses}
         onSaveUser={saveUser}
         onDeleteUser={deleteUser}
         onSaveItem={saveItem}
@@ -1293,7 +1308,6 @@ export default function App() {
         items={state.items}
         categories={categories}
         departments={state.departments}
-        warehouses={warehouses}
         onSaveUser={saveUser}
         onDeleteUser={deleteUser}
         onSaveItem={saveItem}

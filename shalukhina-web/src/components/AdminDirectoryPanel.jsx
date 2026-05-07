@@ -10,7 +10,6 @@ import {
   DialogTitle,
   FormControl,
   FormControlLabel,
-  Grid,
   IconButton,
   MenuItem,
   Paper,
@@ -46,9 +45,6 @@ const emptyItem = {
   sku: '',
   categoryId: '',
   unit: 'шт',
-  currentQuantity: '0',
-  minQuantity: '0',
-  storageLocationId: '',
   description: '',
   active: true,
 };
@@ -147,7 +143,7 @@ function UserDialog({ open, user, departments, onClose, onSave }) {
   );
 }
 
-function ItemDialog({ open, item, categories, warehouses, onClose, onSave }) {
+function ItemDialog({ open, item, categories, onClose, onSave }) {
   const [form, setForm] = useState(emptyItem);
   const isEdit = Boolean(item?.id);
 
@@ -160,26 +156,19 @@ function ItemDialog({ open, item, categories, warehouses, onClose, onSave }) {
       sku: item?.sku || '',
       categoryId: item?.category?.id ? String(item.category.id) : '',
       unit: item?.unit || 'шт',
-      currentQuantity: item?.currentQuantity != null ? String(item.currentQuantity) : '0',
-      minQuantity: item?.minQuantity != null ? String(item.minQuantity) : '0',
-      storageLocationId: String(warehouses.find((warehouse) => warehouse.name === item?.storageLocation)?.id || ''),
       description: item?.description || '',
       active: item?.active ?? true,
     });
-  }, [item, open, warehouses]);
+  }, [item, open]);
 
   const submit = async () => {
     const category = categories.find((categoryItem) => String(categoryItem.id) === String(form.categoryId));
-    const warehouse = warehouses.find((warehouseItem) => String(warehouseItem.id) === String(form.storageLocationId));
     await onSave({
       id: item?.id,
       name: form.name,
       sku: form.sku,
       category: category || null,
       unit: form.unit,
-      currentQuantity: Number(form.currentQuantity),
-      minQuantity: Number(form.minQuantity),
-      storageLocation: warehouse?.name || '',
       description: form.description,
       active: form.active,
     });
@@ -207,30 +196,7 @@ function ItemDialog({ open, item, categories, warehouses, onClose, onSave }) {
               ))}
             </Select>
           </FormControl>
-          <FormControl fullWidth>
-            <Typography variant="caption" color="text.secondary" sx={{ mb: 0.5 }}>
-              Склад
-            </Typography>
-            <Select value={form.storageLocationId} onChange={(event) => setForm((current) => ({ ...current, storageLocationId: event.target.value }))}>
-              <MenuItem value="">
-                <em>Не выбран</em>
-              </MenuItem>
-              {warehouses.map((warehouse) => (
-                <MenuItem key={warehouse.id} value={String(warehouse.id)}>
-                  {warehouse.name}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
           <TextField label="Ед. изм." value={form.unit} onChange={(event) => setForm((current) => ({ ...current, unit: event.target.value }))} fullWidth required />
-          <Grid container spacing={2}>
-            <Grid item xs={12} sm={6}>
-              <TextField type="number" label="Остаток" value={form.currentQuantity} onChange={(event) => setForm((current) => ({ ...current, currentQuantity: event.target.value }))} fullWidth required />
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <TextField type="number" label="Мин. остаток" value={form.minQuantity} onChange={(event) => setForm((current) => ({ ...current, minQuantity: event.target.value }))} fullWidth required />
-            </Grid>
-          </Grid>
           <TextField label="Описание" value={form.description} onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))} fullWidth multiline minRows={2} />
           <FormControlLabel
             control={<Checkbox checked={form.active} onChange={(event) => setForm((current) => ({ ...current, active: event.target.checked }))} />}
@@ -254,7 +220,6 @@ export function AdminDirectoryPanel({
   items,
   categories,
   departments,
-  warehouses,
   onSaveUser,
   onDeleteUser,
   onSaveItem,
@@ -396,7 +361,7 @@ export function AdminDirectoryPanel({
               <Box>
                 <Typography variant="h6">Товары</Typography>
                 <Typography variant="body2" color="text.secondary">
-                  Справочник канцтоваров с остатками и складом.
+                  Справочник канцтоваров для заявок и закупок.
                 </Typography>
               </Box>
               <Button startIcon={<AddIcon />} variant="contained" onClick={() => openItemDialog()}>
@@ -410,15 +375,14 @@ export function AdminDirectoryPanel({
                   <TableRow>
                     <TableCell>Товар</TableCell>
                     <TableCell>Категория</TableCell>
-                    <TableCell>Остаток</TableCell>
-                    <TableCell>Склад</TableCell>
+                    <TableCell>Ед. изм.</TableCell>
+                    <TableCell>Описание</TableCell>
                     <TableCell>Статус</TableCell>
                     <TableCell align="right">Действия</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
                   {items.map((item) => {
-                    const isLow = Number(item.currentQuantity) <= Number(item.minQuantity);
                     return (
                       <TableRow key={item.id} hover>
                         <TableCell>
@@ -428,13 +392,9 @@ export function AdminDirectoryPanel({
                           </Typography>
                         </TableCell>
                         <TableCell>{item.category?.name || 'Без категории'}</TableCell>
-                        <TableCell>
-                          <Typography color={isLow ? 'warning.main' : 'success.main'} fontWeight={700}>
-                            {item.currentQuantity} {item.unit}
-                          </Typography>
-                        </TableCell>
-                        <TableCell>{item.storageLocation || 'Не указан'}</TableCell>
-                        <TableCell>{isLow ? 'Нужно пополнить' : 'Норма'}</TableCell>
+                        <TableCell>{item.unit}</TableCell>
+                        <TableCell>{item.description || 'Описание не указано'}</TableCell>
+                        <TableCell>{item.active ? 'Активен' : 'Отключен'}</TableCell>
                         <TableCell align="right">
                           <Stack direction="row" spacing={1} justifyContent="flex-end">
                             <IconButton onClick={() => openItemDialog(item)} size="small">
@@ -471,7 +431,6 @@ export function AdminDirectoryPanel({
         open={itemDialogOpen}
         item={editingItem}
         categories={categories}
-        warehouses={warehouses}
         onClose={closeItemDialog}
         onSave={saveItem}
       />

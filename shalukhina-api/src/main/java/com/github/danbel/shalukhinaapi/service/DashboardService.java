@@ -1,17 +1,15 @@
 package com.github.danbel.shalukhinaapi.service;
 
 import com.github.danbel.shalukhinaapi.domain.RequestStatus;
-import com.github.danbel.shalukhinaapi.domain.StockMovement;
 import com.github.danbel.shalukhinaapi.domain.SupplyItem;
 import com.github.danbel.shalukhinaapi.domain.SupplyRequest;
 import com.github.danbel.shalukhinaapi.repo.SupplyItemRepository;
 import com.github.danbel.shalukhinaapi.repo.SupplyRequestRepository;
 import java.math.BigDecimal;
-import java.time.Instant;
-import java.time.LocalDate;
-import java.time.ZoneOffset;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -21,17 +19,23 @@ public class DashboardService {
 
     private final SupplyRequestRepository requestRepository;
     private final SupplyItemRepository itemRepository;
+    private final InventoryService inventoryService;
 
     public DashboardResponse getDashboard() {
         List<SupplyRequest> requests = requestRepository.findAll();
         List<SupplyItem> items = itemRepository.findAll();
+        Map<Long, BigDecimal> stockByItemId = inventoryService.listBalances().stream()
+                .collect(Collectors.groupingBy(
+                        balance -> balance.itemId(),
+                        Collectors.reducing(BigDecimal.ZERO, balance -> balance.quantity(), BigDecimal::add)
+                ));
 
         long totalRequests = requests.size();
         long submitted = requests.stream().filter(r -> r.getStatus() == RequestStatus.SUBMITTED).count();
         long approved = requests.stream().filter(r -> r.getStatus() == RequestStatus.APPROVED).count();
         long issued = requests.stream().filter(r -> r.getStatus() == RequestStatus.ISSUED).count();
         long rejected = requests.stream().filter(r -> r.getStatus() == RequestStatus.REJECTED).count();
-        long lowStock = items.stream().filter(item -> item.getCurrentQuantity().compareTo(item.getMinQuantity()) <= 0).count();
+        long lowStock = items.stream().filter(item -> stockByItemId.getOrDefault(item.getId(), BigDecimal.ZERO).compareTo(BigDecimal.ZERO) <= 0).count();
 
         List<SupplyRequest> recentRequests = requests.stream()
                 .sorted(Comparator.comparing(SupplyRequest::getCreatedAt).reversed())
@@ -39,7 +43,7 @@ public class DashboardService {
                 .toList();
 
         List<SupplyItem> criticalItems = items.stream()
-                .sorted(Comparator.comparing(SupplyItem::getCurrentQuantity))
+                .sorted(Comparator.comparing(item -> stockByItemId.getOrDefault(item.getId(), BigDecimal.ZERO)))
                 .limit(5)
                 .toList();
 

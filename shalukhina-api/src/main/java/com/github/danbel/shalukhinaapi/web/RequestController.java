@@ -1,6 +1,7 @@
 package com.github.danbel.shalukhinaapi.web;
 
 import com.github.danbel.shalukhinaapi.domain.SupplyRequest;
+import com.github.danbel.shalukhinaapi.domain.RequestStatus;
 import com.github.danbel.shalukhinaapi.auth.CurrentUserResolver;
 import com.github.danbel.shalukhinaapi.domain.SystemUser;
 import com.github.danbel.shalukhinaapi.service.RequestService;
@@ -82,7 +83,11 @@ public class RequestController {
     @PreAuthorize("hasAnyRole('ADMIN','RESPONSIBLE')")
     public SupplyRequest issue(@PathVariable Long id, @RequestBody IssueCommand command, HttpServletRequest request) {
         SystemUser currentUser = currentUserResolver.requireUser(request);
-        return requestService.issue(id, currentUser.getId(), command.document());
+        return requestService.changeStatus(
+                id,
+                currentUser.getId(),
+                new RequestService.ChangeStatusCommand(RequestStatus.ISSUED, command.document(), command.warehouseId())
+        );
     }
 
     public record ApprovalCommand(Long actorId, String comment) {
@@ -91,6 +96,6 @@ public class RequestController {
     public record RejectionCommand(Long actorId, String reason) {
     }
 
-    public record IssueCommand(Long actorId, String document) {
+    public record IssueCommand(Long actorId, String document, Long warehouseId) {
     }
 }
