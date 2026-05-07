@@ -1,11 +1,9 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
-  Avatar,
   Box,
   Button,
   Chip,
   Container,
-  Divider,
   FormControl,
   Grid,
   MenuItem,
@@ -46,6 +44,7 @@ import { RequestFormPage } from './components/RequestFormPage';
 import { RequestDetailsPage } from './components/RequestDetailsPage';
 import { AppShell } from './components/AppShell';
 import { RequestKanbanBoard } from './components/RequestKanbanBoard';
+import { AdminDirectoryPanel } from './components/AdminDirectoryPanel';
 
 const sectionTitles = {
   dashboard: 'Главная',
@@ -68,11 +67,6 @@ const panelSx = {
   borderRadius: 2,
   border: '1px solid rgba(15, 23, 42, 0.08)',
   background: 'linear-gradient(180deg, #ffffff 0%, #fbfefe 100%)',
-};
-
-const mutedPanelSx = {
-  ...panelSx,
-  background: 'linear-gradient(180deg, #f8fcff 0%, #ffffff 100%)',
 };
 
 const formatDateTime = (value) =>
@@ -203,18 +197,6 @@ export default function App() {
   const [purchaseDialogOpen, setPurchaseDialogOpen] = useState(false);
   const [purchaseInitialItems, setPurchaseInitialItems] = useState([]);
   const [purchaseInitialWarehouseId, setPurchaseInitialWarehouseId] = useState('');
-  const [warehouseForm, setWarehouseForm] = useState({ code: '', name: '', description: '' });
-  const [itemForm, setItemForm] = useState({
-    name: '',
-    sku: '',
-    categoryId: '',
-    unit: 'шт',
-    currentQuantity: '0',
-    minQuantity: '0',
-    storageLocation: '',
-    description: '',
-  });
-  const [adminFormSaving, setAdminFormSaving] = useState(false);
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [search, setSearch] = useState('');
   const [message, setMessage] = useState('');
@@ -234,7 +216,7 @@ export default function App() {
   const isAdmin = activeUser?.role === 'ADMIN';
   const isEmployee = activeUser?.role === 'EMPLOYEE';
   const canManage = activeUser?.role === 'ADMIN' || activeUser?.role === 'RESPONSIBLE';
-  const useKanbanRequests = activeUser?.role === 'RESPONSIBLE';
+  const useKanbanRequests = activeUser?.role === 'RESPONSIBLE' || activeUser?.role === 'ADMIN';
   const visibleNavItems = useMemo(
     () => navItems.filter((item) => {
       if (isEmployee) {
@@ -280,14 +262,6 @@ export default function App() {
     () => purchases.filter((purchase) => purchase.status === 'COMPLETED').length,
     [purchases],
   );
-  useEffect(() => {
-    if (warehouses.length && !itemForm.storageLocation) {
-      setItemForm((current) => ({
-        ...current,
-        storageLocation: String(warehouses[0].id),
-      }));
-    }
-  }, [warehouses, itemForm.storageLocation]);
   const defaultWarehouseId = warehouses[0]?.id ? String(warehouses[0].id) : '';
   const visibleRecentRequests = useMemo(
     () => (isEmployee ? employeeRequests : state.dashboard.recentRequests),
@@ -660,58 +634,57 @@ export default function App() {
     });
   };
 
-  const submitWarehouse = async (event) => {
-    event.preventDefault();
-    setAdminFormSaving(true);
-    try {
-      await runApiAction(
-        () => api.createWarehouse({
-          code: warehouseForm.code,
-          name: warehouseForm.name,
-          description: warehouseForm.description,
-          active: true,
-        }),
-        'Склад создан',
-      );
-      setWarehouseForm({ code: '', name: '', description: '' });
-    } finally {
-      setAdminFormSaving(false);
-    }
+  const saveUser = async (payload) => {
+    const body = {
+      fullName: payload.fullName,
+      email: payload.email,
+      username: payload.username,
+      passwordHash: payload.passwordHash,
+      role: payload.role,
+      department: payload.department,
+      position: payload.position,
+      active: payload.active,
+    };
+    await runApiAction(
+      () => (payload.id ? api.updateUser(payload.id, body) : api.createUser(body)),
+      payload.id ? 'Сотрудник обновлен' : 'Сотрудник создан',
+    );
   };
 
-  const submitItem = async (event) => {
-    event.preventDefault();
-    setAdminFormSaving(true);
-    try {
-      const selectedCategory = categories.find((category) => String(category.id) === String(itemForm.categoryId));
-      const selectedWarehouse = warehouses.find((warehouse) => String(warehouse.id) === String(itemForm.storageLocation));
-      await runApiAction(
-        () => api.createItem({
-          name: itemForm.name,
-          sku: itemForm.sku,
-          category: selectedCategory || null,
-          unit: itemForm.unit,
-          currentQuantity: Number(itemForm.currentQuantity),
-          minQuantity: Number(itemForm.minQuantity),
-          storageLocation: selectedWarehouse?.name || itemForm.storageLocation,
-          description: itemForm.description,
-          active: true,
-        }),
-        'Товар создан',
-      );
-      setItemForm({
-        name: '',
-        sku: '',
-        categoryId: '',
-        unit: 'шт',
-        currentQuantity: '0',
-        minQuantity: '0',
-        storageLocation: '',
-        description: '',
-      });
-    } finally {
-      setAdminFormSaving(false);
+  const deleteUser = async (user) => {
+    if (!window.confirm(`Удалить сотрудника "${user.fullName}"?`)) {
+      return;
     }
+    if (user.id === activeUser.id) {
+      setError('Нельзя удалить текущего пользователя.');
+      return;
+    }
+    await runApiAction(() => api.deleteUser(user.id), 'Сотрудник удален');
+  };
+
+  const saveItem = async (payload) => {
+    const body = {
+      name: payload.name,
+      sku: payload.sku,
+      category: payload.category,
+      unit: payload.unit,
+      currentQuantity: payload.currentQuantity,
+      minQuantity: payload.minQuantity,
+      storageLocation: payload.storageLocation,
+      description: payload.description,
+      active: payload.active,
+    };
+    await runApiAction(
+      () => (payload.id ? api.updateItem(payload.id, body) : api.createItem(body)),
+      payload.id ? 'Товар обновлен' : 'Товар создан',
+    );
+  };
+
+  const deleteItem = async (item) => {
+    if (!window.confirm(`Удалить товар "${item.name}"?`)) {
+      return;
+    }
+    await runApiAction(() => api.deleteItem(item.id), 'Товар удален');
   };
 
   const saveNewRequest = async (payload) => {
@@ -1293,256 +1266,17 @@ export default function App() {
     );
   } else if (isAdmin && section === 'users') {
     content = (
-      <Stack spacing={3}>
-        {error ? <Alert severity="error">{error}</Alert> : null}
-        {message ? <Alert severity="info">{message}</Alert> : null}
-        <Grid container spacing={2.5}>
-          <Grid item xs={12} lg={6}>
-            <Paper elevation={0} sx={panelSx}>
-              <Typography variant="h6" sx={{ mb: 2 }}>
-                Сотрудники
-              </Typography>
-              <TableContainer>
-                <Table size="small">
-                  <TableHead>
-                    <TableRow>
-                      <TableCell>ФИО</TableCell>
-                      <TableCell>Роль</TableCell>
-                      <TableCell>Кабинет / отдел</TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {state.users.map((user) => (
-                      <TableRow key={user.id} hover>
-                        <TableCell>
-                          <Stack direction="row" spacing={1.5} alignItems="center">
-                            <Avatar sx={{ width: 32, height: 32 }}>{user.fullName[0]}</Avatar>
-                            <Box>
-                              <Typography fontWeight={700}>{user.fullName}</Typography>
-                              <Typography variant="body2" color="text.secondary">
-                                {user.email}
-                              </Typography>
-                            </Box>
-                          </Stack>
-                        </TableCell>
-                        <TableCell><StatusChip value={user.role} /></TableCell>
-                        <TableCell>{user.department?.name}</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </TableContainer>
-            </Paper>
-          </Grid>
-          <Grid item xs={12} lg={6}>
-            <Paper elevation={0} sx={panelSx}>
-              <Typography variant="h6" sx={{ mb: 2 }}>
-                Кабинеты и справочники
-              </Typography>
-              <Grid container spacing={2}>
-                <Grid item xs={12} md={4}>
-                  <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
-                    Кабинеты / отделы
-                  </Typography>
-                  <Stack spacing={1}>
-                    {state.departments.map((department) => (
-                      <Paper key={department.id} variant="outlined" sx={{ p: 1.5, borderRadius: 1.5 }}>
-                        <Typography fontWeight={700}>{department.name}</Typography>
-                        <Typography variant="body2" color="text.secondary">
-                          {department.code}
-                        </Typography>
-                      </Paper>
-                    ))}
-                  </Stack>
-                </Grid>
-                <Grid item xs={12} md={4}>
-                  <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
-                    Категории канцтоваров
-                  </Typography>
-                  <Stack spacing={1}>
-                    {categories.map((category) => (
-                      <Paper key={category.id} variant="outlined" sx={{ p: 1.5, borderRadius: 1.5 }}>
-                        <Typography fontWeight={700}>{category.name}</Typography>
-                        <Typography variant="body2" color="text.secondary">
-                          {category.description}
-                        </Typography>
-                      </Paper>
-                    ))}
-                  </Stack>
-                </Grid>
-                <Grid item xs={12} md={4}>
-                  <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
-                    Склады
-                  </Typography>
-                  <Stack spacing={1}>
-                    {warehouses.map((warehouse) => (
-                      <Paper key={warehouse.id} variant="outlined" sx={{ p: 1.5, borderRadius: 1.5 }}>
-                        <Typography fontWeight={700}>{warehouse.name}</Typography>
-                        <Typography variant="body2" color="text.secondary">
-                          {warehouse.code}
-                        </Typography>
-                      </Paper>
-                    ))}
-                  </Stack>
-                </Grid>
-              </Grid>
-            </Paper>
-          </Grid>
-        </Grid>
-
-        <Grid container spacing={2.5}>
-          <Grid item xs={12} lg={5}>
-            <Paper elevation={0} sx={panelSx} component="form" onSubmit={submitWarehouse}>
-              <Stack spacing={2}>
-                <Box>
-                  <Typography variant="h6">Создать склад</Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    Добавьте новый склад, чтобы использовать его в закупках и карточках товаров.
-                  </Typography>
-                </Box>
-                <TextField
-                  label="Код склада"
-                  value={warehouseForm.code}
-                  onChange={(event) => setWarehouseForm((current) => ({ ...current, code: event.target.value }))}
-                  required
-                />
-                <TextField
-                  label="Название склада"
-                  value={warehouseForm.name}
-                  onChange={(event) => setWarehouseForm((current) => ({ ...current, name: event.target.value }))}
-                  required
-                />
-                <TextField
-                  label="Описание"
-                  value={warehouseForm.description}
-                  onChange={(event) => setWarehouseForm((current) => ({ ...current, description: event.target.value }))}
-                  multiline
-                  minRows={2}
-                />
-                <Button type="submit" variant="contained" disabled={adminFormSaving}>
-                  {adminFormSaving ? 'Сохранение...' : 'Создать склад'}
-                </Button>
-              </Stack>
-            </Paper>
-          </Grid>
-          <Grid item xs={12} lg={7}>
-            <Paper elevation={0} sx={panelSx} component="form" onSubmit={submitItem}>
-              <Stack spacing={2}>
-                <Box>
-                  <Typography variant="h6">Создать товар</Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    Новый товар появится в складе и его можно будет использовать в заявках и закупках.
-                  </Typography>
-                </Box>
-                <Grid container spacing={2}>
-                  <Grid item xs={12} md={6}>
-                    <TextField
-                      fullWidth
-                      label="Название"
-                      value={itemForm.name}
-                      onChange={(event) => setItemForm((current) => ({ ...current, name: event.target.value }))}
-                      required
-                    />
-                  </Grid>
-                  <Grid item xs={12} md={6}>
-                    <TextField
-                      fullWidth
-                      label="SKU"
-                      value={itemForm.sku}
-                      onChange={(event) => setItemForm((current) => ({ ...current, sku: event.target.value }))}
-                      required
-                    />
-                  </Grid>
-                  <Grid item xs={12} md={6}>
-                    <FormControl fullWidth>
-                      <Typography variant="caption" color="text.secondary" sx={{ mb: 0.5 }}>
-                        Категория
-                      </Typography>
-                      <Select
-                        value={itemForm.categoryId}
-                        onChange={(event) => setItemForm((current) => ({ ...current, categoryId: event.target.value }))}
-                        displayEmpty
-                      >
-                        <MenuItem value="">
-                          <em>Выберите категорию</em>
-                        </MenuItem>
-                        {categories.map((category) => (
-                          <MenuItem key={category.id} value={category.id}>
-                            {category.name}
-                          </MenuItem>
-                        ))}
-                      </Select>
-                    </FormControl>
-                  </Grid>
-                  <Grid item xs={12} md={6}>
-                    <FormControl fullWidth>
-                      <Typography variant="caption" color="text.secondary" sx={{ mb: 0.5 }}>
-                        Склад
-                      </Typography>
-                        <Select
-                          value={itemForm.storageLocation}
-                          onChange={(event) => setItemForm((current) => ({ ...current, storageLocation: event.target.value }))}
-                          displayEmpty
-                        >
-                        <MenuItem value="">
-                          <em>Выберите склад</em>
-                        </MenuItem>
-                        {warehouses.map((warehouse) => (
-                          <MenuItem key={warehouse.id} value={String(warehouse.id)}>
-                            {warehouse.name}
-                          </MenuItem>
-                        ))}
-                      </Select>
-                    </FormControl>
-                  </Grid>
-                  <Grid item xs={12} md={4}>
-                    <TextField
-                      fullWidth
-                      label="Ед. изм."
-                      value={itemForm.unit}
-                      onChange={(event) => setItemForm((current) => ({ ...current, unit: event.target.value }))}
-                      required
-                    />
-                  </Grid>
-                  <Grid item xs={12} md={4}>
-                    <TextField
-                      fullWidth
-                      type="number"
-                      label="Остаток"
-                      value={itemForm.currentQuantity}
-                      onChange={(event) => setItemForm((current) => ({ ...current, currentQuantity: event.target.value }))}
-                      required
-                    />
-                  </Grid>
-                  <Grid item xs={12} md={4}>
-                    <TextField
-                      fullWidth
-                      type="number"
-                      label="Мин. остаток"
-                      value={itemForm.minQuantity}
-                      onChange={(event) => setItemForm((current) => ({ ...current, minQuantity: event.target.value }))}
-                      required
-                    />
-                  </Grid>
-                  <Grid item xs={12}>
-                    <TextField
-                      fullWidth
-                      label="Описание"
-                      value={itemForm.description}
-                      onChange={(event) => setItemForm((current) => ({ ...current, description: event.target.value }))}
-                      multiline
-                      minRows={2}
-                    />
-                  </Grid>
-                </Grid>
-                <Button type="submit" variant="contained" disabled={adminFormSaving}>
-                  {adminFormSaving ? 'Сохранение...' : 'Создать товар'}
-                </Button>
-              </Stack>
-            </Paper>
-          </Grid>
-        </Grid>
-      </Stack>
+      <AdminDirectoryPanel
+        users={state.users}
+        items={state.items}
+        categories={categories}
+        departments={state.departments}
+        warehouses={warehouses}
+        onSaveUser={saveUser}
+        onDeleteUser={deleteUser}
+        onSaveItem={saveItem}
+        onDeleteItem={deleteItem}
+      />
     );
   } else {
     content = (

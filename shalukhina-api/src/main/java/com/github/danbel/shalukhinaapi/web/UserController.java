@@ -5,6 +5,7 @@ import com.github.danbel.shalukhinaapi.repo.SystemUserRepository;
 import com.github.danbel.shalukhinaapi.service.DomainNotFoundException;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -21,6 +22,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class UserController {
 
     private final SystemUserRepository repository;
+    private final PasswordEncoder passwordEncoder;
 
     @GetMapping
     @PreAuthorize("hasRole('ADMIN')")
@@ -37,6 +39,10 @@ public class UserController {
     @PostMapping
     @PreAuthorize("hasRole('ADMIN')")
     public SystemUser create(@RequestBody SystemUser user) {
+        if (user.getPasswordHash() == null || user.getPasswordHash().isBlank()) {
+            throw new IllegalArgumentException("Password is required");
+        }
+        user.setPasswordHash(passwordEncoder.encode(user.getPasswordHash()));
         return repository.save(user);
     }
 
@@ -47,6 +53,9 @@ public class UserController {
         user.setFullName(payload.getFullName());
         user.setEmail(payload.getEmail());
         user.setUsername(payload.getUsername());
+        if (payload.getPasswordHash() != null && !payload.getPasswordHash().isBlank()) {
+            user.setPasswordHash(passwordEncoder.encode(payload.getPasswordHash()));
+        }
         user.setRole(payload.getRole());
         user.setDepartment(payload.getDepartment());
         user.setPosition(payload.getPosition());
