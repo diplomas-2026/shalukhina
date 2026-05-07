@@ -8,7 +8,6 @@ import {
   Divider,
   FormControl,
   Grid,
-  IconButton,
   MenuItem,
   Paper,
   Select,
@@ -23,7 +22,6 @@ import {
   Typography,
   Alert,
   CircularProgress,
-  Drawer,
 } from '@mui/material';
 import DashboardIcon from '@mui/icons-material/Dashboard';
 import AssignmentIcon from '@mui/icons-material/Assignment';
@@ -41,6 +39,8 @@ import { api, setToken } from './lib/http';
 import { StatCard } from './components/StatCard';
 import { StatusChip } from './components/StatusChip';
 import { ReceiveDialog } from './components/ReceiveDialog';
+import { PurchaseOrderDialog } from './components/PurchaseOrderDialog';
+import { PurchaseKanbanBoard } from './components/PurchaseKanbanBoard';
 import { RequestFormPage } from './components/RequestFormPage';
 import { RequestDetailsPage } from './components/RequestDetailsPage';
 import { AppShell } from './components/AppShell';
@@ -114,6 +114,7 @@ function createEmptyState() {
     items: [],
     requests: [],
     movements: [],
+    purchases: [],
   };
   return {
     ...empty,
@@ -131,6 +132,7 @@ function normalizeApiState(payload) {
     items: payload.items || [],
     requests: payload.requests || [],
     movements: payload.movements || [],
+    purchases: payload.purchases || [],
     dashboard: payload.dashboard || null,
     source: 'api',
     apiAvailable: true,
@@ -145,12 +147,14 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [state, setState] = useState(createEmptyState);
   const [receiveOpen, setReceiveOpen] = useState(false);
-  const [selectedItemId, setSelectedItemId] = useState(null);
+  const [purchaseDialogOpen, setPurchaseDialogOpen] = useState(false);
+  const [purchaseInitialItems, setPurchaseInitialItems] = useState([]);
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [search, setSearch] = useState('');
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [statusChangingRequestId, setStatusChangingRequestId] = useState(null);
+  const [statusChangingPurchaseId, setStatusChangingPurchaseId] = useState(null);
   const [authUser, setAuthUser] = useState(null);
   const [authLoading, setAuthLoading] = useState(Boolean(api.getToken()));
   const [loginForm, setLoginForm] = useState({ username: 'admin', password: 'admin123' });
@@ -174,7 +178,7 @@ export default function App() {
     }),
     [isAdmin, isEmployee],
   );
-  const selectedItem = state.items.find((item) => item.id === selectedItemId) || null;
+  const purchases = state.purchases || [];
   const employeeRequests = useMemo(
     () => state.requests.filter((request) => request.requester?.id === activeUser?.id),
     [state.requests, activeUser?.id],
@@ -195,6 +199,18 @@ export default function App() {
   const recentMovements = useMemo(
     () => state.movements.slice().sort((a, b) => new Date(b.happenedAt) - new Date(a.happenedAt)).slice(0, 5),
     [state.movements],
+  );
+  const purchaseBoardItems = useMemo(
+    () => purchases.slice().sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)),
+    [purchases],
+  );
+  const openPurchasesCount = useMemo(
+    () => purchases.filter((purchase) => purchase.status !== 'COMPLETED' && purchase.status !== 'CANCELLED').length,
+    [purchases],
+  );
+  const completedPurchasesCount = useMemo(
+    () => purchases.filter((purchase) => purchase.status === 'COMPLETED').length,
+    [purchases],
   );
   const visibleRecentRequests = useMemo(
     () => (isEmployee ? employeeRequests : state.dashboard.recentRequests),
@@ -233,6 +249,7 @@ export default function App() {
     const departments = await api.getDepartments();
     const categories = await api.getCategories();
     const movements = await api.getMovements();
+    const purchases = await api.getPurchases();
     const dashboard = await api.getDashboard();
     const users = includeUsers ? await api.getUsers() : [];
 
@@ -244,6 +261,7 @@ export default function App() {
       departments,
       categories,
       movements,
+      purchases,
     };
   }
 
@@ -340,7 +358,6 @@ export default function App() {
     setMessage('');
     setError('');
     setSection('dashboard');
-    setSelectedItemId(null);
     window.history.pushState({}, '', '/');
     setRoute('/');
     setLoading(false);
@@ -406,9 +423,53 @@ export default function App() {
     await runApiAction(() => api.receiveItem(payload.itemId, payload), 'Поступление сохранено');
   };
 
+  const createPurchase = async (payload) => {
+    await runApiAction(
+      () => api.createPurchase({
+        comment: payload.comment,
+        items: payload.items,
+      }),
+      'Закупка создана',
+    );
+  };
+
+  const movePurchaseStatus = async (purchaseId, nextStatus) => {
+    setStatusChangingPurchaseId(purchaseId);
+    const noteByStatus = {
+      ORDERED: 'Заказ оформлен',
+      IN_TRANSIT: 'Заказ в пути',
+      COMPLETED: 'Закупка завершена и товары поступили на склад',
+      CANCELLED: 'Закупка отменена',
+      DRAFT: 'Переведено в черновик',
+    };
+    try {
+      await runApiAction(
+        () => api.changePurchaseStatus(purchaseId, { status: nextStatus, note: noteByStatus[nextStatus] || 'Изменен статус закупки' }),
+        'Статус закупки изменен',
+      );
+    } finally {
+      setStatusChangingPurchaseId((current) => (current === purchaseId ? null : current));
+    }
+  };
+
   const openRequestCreatePage = () => navigate('/requests/new');
   const openRequestDetailsPage = (requestId) => navigate(`/requests/${requestId}`);
   const openRequestEditPage = (requestId) => navigate(`/requests/${requestId}/edit`);
+  const openPurchaseDialog = (item = null) => {
+    if (item) {
+      const deficit = Math.max(Number(item.minQuantity || 0) - Number(item.currentQuantity || 0), 1);
+      setPurchaseInitialItems([{ itemId: item.id, quantity: deficit }]);
+    } else {
+      setPurchaseInitialItems([]);
+    }
+    setPurchaseDialogOpen(true);
+  };
+
+  const submitPurchaseOrder = async (payload) => {
+    await createPurchase(payload);
+    setPurchaseDialogOpen(false);
+    setPurchaseInitialItems([]);
+  };
 
   const saveNewRequest = async (payload) => {
     const requestBody = {
@@ -790,28 +851,33 @@ export default function App() {
         {error ? <Alert severity="error">{error}</Alert> : null}
         {message ? <Alert severity="info">{message}</Alert> : null}
         <Grid container spacing={2.5}>
-          <Grid item xs={12}>
-            <Grid container spacing={2.5}>
-              <Grid item xs={12} sm={4}>
-                <StatCard title="Позиций на складе" value={state.items.length} hint="Все товары в системе" />
-              </Grid>
-              <Grid item xs={12} sm={4}>
-                <StatCard title="Нуждаются в пополнении" value={lowStockItems.length} hint="Ниже минимального остатка" />
-              </Grid>
-              <Grid item xs={12} sm={4}>
-                <StatCard title="Движений за период" value={state.movements.length} hint="Поступления и выдачи" />
-              </Grid>
-            </Grid>
+          <Grid item xs={12} sm={6} md={3}>
+            <StatCard title="Позиций на складе" value={state.items.length} hint="Все товары в системе" />
           </Grid>
-          <Grid item xs={12} lg={8}>
+          <Grid item xs={12} sm={6} md={3}>
+            <StatCard title="Нуждаются в пополнении" value={lowStockItems.length} hint="Ниже нормы" />
+          </Grid>
+          <Grid item xs={12} sm={6} md={3}>
+            <StatCard title="Закупок в работе" value={openPurchasesCount} hint="Драфты, заказы, в пути" />
+          </Grid>
+          <Grid item xs={12} sm={6} md={3}>
+            <StatCard title="Завершено закупок" value={completedPurchasesCount} hint="Уже пополнили склад" />
+          </Grid>
+        </Grid>
+
+        <Grid container spacing={2.5}>
+          <Grid item xs={12} lg={7}>
             <Paper elevation={0} sx={panelSx}>
-              <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
+              <Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" alignItems={{ xs: 'stretch', md: 'center' }} spacing={2} sx={{ mb: 2 }}>
                 <Box>
                   <Typography variant="h6">Остатки на складе</Typography>
                   <Typography variant="body2" color="text.secondary">
-                    Здесь видно, чего хватает, а что лучше пополнить заранее.
+                    Здесь видно текущий остаток по каждому товару. Если чего-то не хватает, можно сразу оформить закупку.
                   </Typography>
                 </Box>
+                <Button variant="contained" onClick={() => openPurchaseDialog()}>
+                  Сформировать закупку
+                </Button>
               </Stack>
               <TableContainer>
                 <Table size="small">
@@ -820,7 +886,6 @@ export default function App() {
                       <TableCell>Товар</TableCell>
                       <TableCell>Категория</TableCell>
                       <TableCell>Остаток</TableCell>
-                      <TableCell>Мин. остаток</TableCell>
                       <TableCell>Склад</TableCell>
                       <TableCell align="right">Действия</TableCell>
                     </TableRow>
@@ -846,11 +911,10 @@ export default function App() {
                               variant="outlined"
                             />
                           </TableCell>
-                          <TableCell>{formatNumber(item.minQuantity)} {item.unit}</TableCell>
                           <TableCell>{item.storageLocation}</TableCell>
                           <TableCell align="right">
-                            <Button size="small" variant="outlined" onClick={() => setSelectedItemId(item.id)}>
-                              Пополнить
+                            <Button size="small" variant="outlined" onClick={() => openPurchaseDialog(item)}>
+                              Заказать
                             </Button>
                           </TableCell>
                         </TableRow>
@@ -859,6 +923,27 @@ export default function App() {
                   </TableBody>
                 </Table>
               </TableContainer>
+            </Paper>
+          </Grid>
+          <Grid item xs={12} lg={5}>
+            <Paper elevation={0} sx={panelSx}>
+              <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
+                <Box>
+                  <Typography variant="h6">Закупки</Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Создавайте закупку, переносите ее между статусами и завершайте, когда товар пришел на склад.
+                  </Typography>
+                </Box>
+                <Button variant="outlined" onClick={() => openPurchaseDialog()}>
+                  Новая закупка
+                </Button>
+              </Stack>
+              <PurchaseKanbanBoard
+                purchases={purchaseBoardItems}
+                onMovePurchase={movePurchaseStatus}
+                onOpenPurchase={() => setMessage('Откройте карточку закупки через канбан.')}
+                statusChangingPurchaseId={statusChangingPurchaseId}
+              />
             </Paper>
           </Grid>
         </Grid>
@@ -1068,25 +1153,16 @@ export default function App() {
         actor={activeUser}
       />
 
-      <Drawer anchor="right" open={Boolean(selectedItem)} onClose={() => setSelectedItemId(null)}>
-        <Box sx={{ width: 420, p: 3 }}>
-          {selectedItem ? (
-            <Stack spacing={2}>
-              <Typography variant="h5">{selectedItem.name}</Typography>
-              <Typography color="text.secondary">{selectedItem.description}</Typography>
-              <Stack direction="row" spacing={1}>
-                <Chip label={selectedItem.category?.name || 'Категория'} variant="outlined" />
-                <Chip label={selectedItem.active ? 'Активный' : 'Неактивный'} color={selectedItem.active ? 'success' : 'default'} />
-                <Chip label={selectedItem.sku} variant="outlined" />
-              </Stack>
-              <Divider />
-              <Typography>Остаток: {formatNumber(selectedItem.currentQuantity)} {selectedItem.unit}</Typography>
-              <Typography>Минимум: {formatNumber(selectedItem.minQuantity)} {selectedItem.unit}</Typography>
-              <Typography>Склад: {selectedItem.storageLocation}</Typography>
-            </Stack>
-          ) : null}
-        </Box>
-      </Drawer>
+      <PurchaseOrderDialog
+        open={purchaseDialogOpen}
+        items={state.items}
+        initialItems={purchaseInitialItems}
+        onClose={() => {
+          setPurchaseDialogOpen(false);
+          setPurchaseInitialItems([]);
+        }}
+        onSubmit={submitPurchaseOrder}
+      />
     </>
   );
 }

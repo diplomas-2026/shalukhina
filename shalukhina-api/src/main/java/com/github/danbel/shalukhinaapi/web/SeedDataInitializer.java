@@ -4,6 +4,8 @@ import com.github.danbel.shalukhinaapi.domain.Department;
 import com.github.danbel.shalukhinaapi.domain.RequestPriority;
 import com.github.danbel.shalukhinaapi.domain.RequestStatus;
 import com.github.danbel.shalukhinaapi.domain.StockMovementType;
+import com.github.danbel.shalukhinaapi.domain.PurchaseOrder;
+import com.github.danbel.shalukhinaapi.domain.PurchaseOrderStatus;
 import com.github.danbel.shalukhinaapi.domain.SupplyCategory;
 import com.github.danbel.shalukhinaapi.domain.SupplyItem;
 import com.github.danbel.shalukhinaapi.domain.RequestChatMessage;
@@ -13,12 +15,14 @@ import com.github.danbel.shalukhinaapi.domain.SystemUser;
 import com.github.danbel.shalukhinaapi.domain.UserRole;
 import com.github.danbel.shalukhinaapi.repo.DepartmentRepository;
 import com.github.danbel.shalukhinaapi.repo.RequestChatMessageRepository;
+import com.github.danbel.shalukhinaapi.repo.PurchaseOrderRepository;
 import com.github.danbel.shalukhinaapi.repo.SupplyRequestRepository;
 import com.github.danbel.shalukhinaapi.repo.StockMovementRepository;
 import com.github.danbel.shalukhinaapi.repo.SupplyCategoryRepository;
 import com.github.danbel.shalukhinaapi.repo.SupplyItemRepository;
 import com.github.danbel.shalukhinaapi.repo.SystemUserRepository;
 import com.github.danbel.shalukhinaapi.service.RequestService;
+import com.github.danbel.shalukhinaapi.service.PurchaseOrderService;
 import java.math.BigDecimal;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
@@ -36,8 +40,10 @@ public class SeedDataInitializer implements CommandLineRunner {
     private final SupplyItemRepository itemRepository;
     private final SupplyRequestRepository requestRepository;
     private final RequestChatMessageRepository chatMessageRepository;
+    private final PurchaseOrderRepository purchaseOrderRepository;
     private final StockMovementRepository movementRepository;
     private final RequestService requestService;
+    private final PurchaseOrderService purchaseOrderService;
     private final PasswordEncoder passwordEncoder;
 
     @Override
@@ -48,6 +54,10 @@ public class SeedDataInitializer implements CommandLineRunner {
 
         if (chatMessageRepository.count() == 0) {
             seedChatData();
+        }
+
+        if (purchaseOrderRepository.count() == 0) {
+            seedPurchaseData();
         }
     }
 
@@ -207,6 +217,65 @@ public class SeedDataInitializer implements CommandLineRunner {
             chatMessageRepository.save(buildChatMessage(rejectedRequest, employee, "Поняла, вернусь к этому запросу позже."));
             chatMessageRepository.save(buildChatMessage(rejectedRequest, responsible, "Да, после обновления бюджета рассмотрим повторно."));
         }
+    }
+
+    private void seedPurchaseData() {
+        SystemUser responsible = userRepository.findByUsername("osidorova").orElse(null);
+        SystemUser accountant = userRepository.findByUsername("milina").orElse(null);
+        SystemUser admin = userRepository.findByUsername("admin").orElse(null);
+        List<SupplyItem> items = itemRepository.findAll();
+
+        if (responsible == null || accountant == null || admin == null || items.size() < 4) {
+            return;
+        }
+
+        PurchaseOrder draft = purchaseOrderService.create(new PurchaseOrderService.CreatePurchaseOrderCommand(
+                responsible.getId(),
+                "Черновик закупки для канцелярии",
+                List.of(
+                        new PurchaseOrderService.CreatePurchaseOrderItemCommand(items.get(0).getId(), new BigDecimal("25")),
+                        new PurchaseOrderService.CreatePurchaseOrderItemCommand(items.get(1).getId(), new BigDecimal("60"))
+                )
+        ));
+
+        purchaseOrderService.changeStatus(draft.getId(), responsible.getId(), new PurchaseOrderService.ChangePurchaseOrderStatusCommand(
+                PurchaseOrderStatus.DRAFT,
+                "Оставлено в черновике"
+        ));
+
+        PurchaseOrder ordered = purchaseOrderService.create(new PurchaseOrderService.CreatePurchaseOrderCommand(
+                accountant.getId(),
+                "Заказ на ручки и файлы",
+                List.of(
+                        new PurchaseOrderService.CreatePurchaseOrderItemCommand(items.get(4).getId(), new BigDecimal("120")),
+                        new PurchaseOrderService.CreatePurchaseOrderItemCommand(items.get(2).getId(), new BigDecimal("80"))
+                )
+        ));
+        purchaseOrderService.changeStatus(ordered.getId(), accountant.getId(), new PurchaseOrderService.ChangePurchaseOrderStatusCommand(
+                PurchaseOrderStatus.ORDERED,
+                "Оформлен у поставщика"
+        ));
+        purchaseOrderService.changeStatus(ordered.getId(), accountant.getId(), new PurchaseOrderService.ChangePurchaseOrderStatusCommand(
+                PurchaseOrderStatus.IN_TRANSIT,
+                "В пути"
+        ));
+
+        PurchaseOrder completed = purchaseOrderService.create(new PurchaseOrderService.CreatePurchaseOrderCommand(
+                admin.getId(),
+                "Поставка бумаги и блокнотов",
+                List.of(
+                        new PurchaseOrderService.CreatePurchaseOrderItemCommand(items.get(0).getId(), new BigDecimal("40")),
+                        new PurchaseOrderService.CreatePurchaseOrderItemCommand(items.get(7).getId(), new BigDecimal("20"))
+                )
+        ));
+        purchaseOrderService.changeStatus(completed.getId(), admin.getId(), new PurchaseOrderService.ChangePurchaseOrderStatusCommand(
+                PurchaseOrderStatus.ORDERED,
+                "Подтверждено"
+        ));
+        purchaseOrderService.changeStatus(completed.getId(), admin.getId(), new PurchaseOrderService.ChangePurchaseOrderStatusCommand(
+                PurchaseOrderStatus.COMPLETED,
+                "Поступление оформлено"
+        ));
     }
 
     private SupplyItem buildItem(String name, String sku, SupplyCategory category, String unit, BigDecimal quantity, BigDecimal minQuantity, String location) {
