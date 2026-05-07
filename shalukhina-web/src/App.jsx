@@ -1,20 +1,14 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
-  AppBar,
   Avatar,
   Box,
   Button,
   Chip,
   Container,
   Divider,
-  Drawer,
   FormControl,
   Grid,
   IconButton,
-  List,
-  ListItemButton,
-  ListItemIcon,
-  ListItemText,
   MenuItem,
   Paper,
   Select,
@@ -26,10 +20,10 @@ import {
   TableHead,
   TableRow,
   TextField,
-  Toolbar,
   Typography,
   Alert,
   CircularProgress,
+  Drawer,
 } from '@mui/material';
 import DashboardIcon from '@mui/icons-material/Dashboard';
 import AssignmentIcon from '@mui/icons-material/Assignment';
@@ -38,7 +32,6 @@ import AssessmentIcon from '@mui/icons-material/Assessment';
 import PeopleIcon from '@mui/icons-material/People';
 import AddIcon from '@mui/icons-material/Add';
 import RefreshIcon from '@mui/icons-material/Refresh';
-import Inventory2Icon from '@mui/icons-material/Inventory2';
 import SchoolIcon from '@mui/icons-material/School';
 import TaskAltIcon from '@mui/icons-material/TaskAlt';
 import LocalShippingIcon from '@mui/icons-material/LocalShipping';
@@ -51,8 +44,8 @@ import { StatusChip } from './components/StatusChip';
 import { ReceiveDialog } from './components/ReceiveDialog';
 import { RequestFormPage } from './components/RequestFormPage';
 import { RequestDetailsPage } from './components/RequestDetailsPage';
+import { AppShell } from './components/AppShell';
 
-const drawerWidth = 280;
 const sectionTitles = {
   dashboard: 'Главная',
   requests: 'Заявки',
@@ -481,9 +474,19 @@ export default function App() {
     );
   }
 
+  const activeSection = requestRouteMatch ? 'requests' : section;
+  const handleSectionChange = (nextSection) => {
+    setSection(nextSection);
+    if (requestRouteMatch) {
+      navigate('/');
+    }
+  };
+
+  let content = null;
+
   if (requestRouteMatch) {
     if (requestRouteMatch.mode === 'create') {
-      return (
+      content = (
         <RequestFormPage
           mode="create"
           request={null}
@@ -494,27 +497,19 @@ export default function App() {
           onCancel={() => navigate('/')}
         />
       );
-    }
-
-    if (!routeRequest) {
-      return (
-        <Box sx={{ minHeight: '100vh', display: 'grid', placeItems: 'center', background: 'linear-gradient(180deg, #eff6ff 0%, #f8fafc 100%)', p: 2 }}>
-          <Paper elevation={0} sx={{ p: 4, borderRadius: 2, border: '1px solid rgba(15, 23, 42, 0.08)' }}>
-            <Stack spacing={2} alignItems="center">
-              <Typography variant="h5">Заявка не найдена</Typography>
-              <Button variant="contained" onClick={() => navigate('/')}>
-                На главную
-              </Button>
-            </Stack>
-          </Paper>
-        </Box>
+    } else if (!routeRequest) {
+      content = (
+        <Paper elevation={0} sx={{ p: 4, borderRadius: 2, border: '1px solid rgba(15, 23, 42, 0.08)', maxWidth: 560, mx: 'auto' }}>
+          <Stack spacing={2} alignItems="center">
+            <Typography variant="h5">Заявка не найдена</Typography>
+            <Button variant="contained" onClick={() => navigate('/')}>
+              На главную
+            </Button>
+          </Stack>
+        </Paper>
       );
-    }
-
-    const canEditRequest = routeRequest.status === 'SUBMITTED' && (canManage || routeRequest.requester?.id === activeUser.id);
-
-    if (requestRouteMatch.mode === 'edit') {
-      return (
+    } else if (requestRouteMatch.mode === 'edit') {
+      content = (
         <RequestFormPage
           mode="edit"
           request={routeRequest}
@@ -525,596 +520,541 @@ export default function App() {
           onCancel={() => navigate(`/requests/${routeRequest.id}`)}
         />
       );
+    } else {
+      const canEditRequest = routeRequest.status === 'SUBMITTED' && (canManage || routeRequest.requester?.id === activeUser.id);
+      content = (
+        <RequestDetailsPage
+          request={routeRequest}
+          currentUser={activeUser}
+          onBack={() => navigate('/')}
+          onEdit={canEditRequest ? () => navigate(`/requests/${routeRequest.id}/edit`) : null}
+        />
+      );
     }
+  } else if (section === 'dashboard') {
+    content = (
+      <Stack spacing={3}>
+        {error ? <Alert severity="error">{error}</Alert> : null}
+        {message ? <Alert severity="info">{message}</Alert> : null}
+        <Paper elevation={0} sx={{ p: 3, borderRadius: 2, border: '1px solid rgba(15, 23, 42, 0.08)' }}>
+          <Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" spacing={2}>
+            <Box>
+              <Typography variant="overline" color="primary.main">
+                {sectionTitles[section]}
+              </Typography>
+              <Typography variant="h4" sx={{ mt: 0.5 }}>
+                {isEmployee ? 'Мои заявки' : 'Рабочая панель'}
+              </Typography>
+              <Typography color="text.secondary" sx={{ mt: 1 }}>
+                {isEmployee
+                  ? 'Создавайте заявку, если в кабинете закончились канцтовары, и отслеживайте ее статус.'
+                  : 'Здесь видно, кто подал заявку, что согласовано, что выдано и что нужно пополнить.'}
+              </Typography>
+            </Box>
+            <Stack direction="row" spacing={1} alignItems="start">
+              <Button startIcon={<RefreshIcon />} variant="outlined" onClick={reloadApiSnapshot}>
+                Обновить
+              </Button>
+              <Button startIcon={<AddIcon />} variant="contained" onClick={openRequestCreatePage}>
+                Создать заявку
+              </Button>
+            </Stack>
+          </Stack>
+        </Paper>
 
-    return (
-      <RequestDetailsPage
-        request={routeRequest}
-        currentUser={activeUser}
-        onBack={() => navigate('/')}
-        onEdit={canEditRequest ? () => navigate(`/requests/${routeRequest.id}/edit`) : null}
-      />
+        <Stack spacing={3}>
+          <Paper elevation={0} sx={{ ...panelSx, overflow: 'hidden', position: 'relative' }}>
+            <Box
+              sx={{
+                position: 'absolute',
+                inset: 0,
+                background: 'radial-gradient(circle at top right, rgba(37, 99, 235, 0.10), transparent 38%), radial-gradient(circle at left bottom, rgba(245, 158, 11, 0.10), transparent 30%)',
+                pointerEvents: 'none',
+              }}
+            />
+            <Grid container spacing={2.5} sx={{ position: 'relative' }}>
+              <Grid item xs={12} md={8}>
+                <Stack spacing={1.5}>
+                  <Typography variant="overline" color="primary.main">
+                    Рабочий день в школе
+                  </Typography>
+                  <Typography variant="h4">
+                    Все заявки и канцтовары в одном понятном окне
+                  </Typography>
+                  <Typography color="text.secondary">
+                    Учитель или сотрудник подает заявку, ответственный согласует, склад выдает товар, а система сама считает остатки.
+                  </Typography>
+                  <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                    <Chip icon={<TaskAltIcon />} label={`${pendingRequests.length} заявок ждут согласования`} variant="outlined" />
+                    <Chip icon={<LocalShippingIcon />} label={`${readyToIssueRequests.length} заявок готовы к выдаче`} variant="outlined" />
+                    <Chip icon={<HistoryIcon />} label={`${state.movements.length} операций в журнале`} variant="outlined" />
+                  </Stack>
+                </Stack>
+              </Grid>
+              <Grid item xs={12} md={4}>
+                <Paper elevation={0} sx={mutedPanelSx}>
+                  <Typography variant="subtitle2" color="text.secondary">
+                    Что сделать сейчас
+                  </Typography>
+                  <Stack spacing={1.25} sx={{ mt: 1.5 }}>
+                    <Button fullWidth variant="contained" startIcon={<AddIcon />} onClick={openRequestCreatePage}>
+                      Создать заявку
+                    </Button>
+                    <Button fullWidth variant="outlined" onClick={() => setSection('requests')}>
+                      Проверить заявки
+                    </Button>
+                  </Stack>
+                </Paper>
+              </Grid>
+            </Grid>
+          </Paper>
+
+          <Grid container spacing={2.5}>
+            <Grid item xs={12} sm={6} md={3}>
+              <StatCard title="Всего заявок" value={state.dashboard.totalRequests} hint="Общий поток заявок" />
+            </Grid>
+            <Grid item xs={12} sm={6} md={3}>
+              <StatCard title="Ждут согласования" value={state.dashboard.submittedRequests} hint="Нужно проверить" />
+            </Grid>
+            <Grid item xs={12} sm={6} md={3}>
+              <StatCard title="Готовы к выдаче" value={state.dashboard.approvedRequests} hint="Можно выдавать" />
+            </Grid>
+            <Grid item xs={12} sm={6} md={3}>
+              <StatCard title="Нужно пополнить" value={state.dashboard.lowStockItems} hint="Остаток ниже нормы" />
+            </Grid>
+          </Grid>
+
+          <Grid container spacing={2.5}>
+            <Grid item xs={12}>
+              <Paper elevation={0} sx={panelSx}>
+                <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
+                  <Box>
+                    <Typography variant="h6">Последние заявки</Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      Можно быстро открыть заявку и посмотреть состав.
+                    </Typography>
+                  </Box>
+                  <Button size="small" variant="outlined" onClick={() => setSection('requests')}>
+                    Все заявки
+                  </Button>
+                </Stack>
+                <TableContainer>
+                  <Table size="small">
+                    <TableHead>
+                      <TableRow>
+                        <TableCell>Номер</TableCell>
+                        <TableCell>Кто подал</TableCell>
+                        <TableCell>Статус</TableCell>
+                        <TableCell>Приоритет</TableCell>
+                        <TableCell align="right">Дата</TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {state.dashboard.recentRequests.map((request) => (
+                        <TableRow key={request.id} hover>
+                          <TableCell>
+                            <Button onClick={() => openRequestDetailsPage(request.id)}>{request.requestNumber}</Button>
+                          </TableCell>
+                          <TableCell>{request.requester?.fullName}</TableCell>
+                          <TableCell><StatusChip value={request.status} /></TableCell>
+                          <TableCell><StatusChip value={request.priority} /></TableCell>
+                          <TableCell align="right">{formatDateTime(request.createdAt)}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              </Paper>
+            </Grid>
+          </Grid>
+        </Stack>
+      </Stack>
+    );
+  } else if (section === 'requests') {
+    content = (
+      <Stack spacing={3}>
+        {error ? <Alert severity="error">{error}</Alert> : null}
+        {message ? <Alert severity="info">{message}</Alert> : null}
+        <Stack spacing={2.5}>
+          <Grid container spacing={2.5}>
+            <Grid item xs={12} sm={6} md={3}>
+              <StatCard title="Новые" value={state.dashboard.submittedRequests} hint="Ждут проверки" />
+            </Grid>
+            <Grid item xs={12} sm={6} md={3}>
+              <StatCard title="Согласованы" value={state.dashboard.approvedRequests} hint="Готовы к выдаче" />
+            </Grid>
+            <Grid item xs={12} sm={6} md={3}>
+              <StatCard title="Выданы" value={state.dashboard.issuedRequests} hint="Закрытые заявки" />
+            </Grid>
+            <Grid item xs={12} sm={6} md={3}>
+              <StatCard title="Отклонены" value={state.dashboard.rejectedRequests} hint="Требуют уточнения" />
+            </Grid>
+          </Grid>
+          <Paper elevation={0} sx={panelSx}>
+            <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} sx={{ mb: 2 }}>
+              <TextField fullWidth label="Поиск по заявке, ФИО или кабинету" value={search} onChange={(event) => setSearch(event.target.value)} />
+              <FormControl sx={{ minWidth: 220 }}>
+                <Select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
+                  <MenuItem value="ALL">Все заявки</MenuItem>
+                  <MenuItem value="SUBMITTED">Новые</MenuItem>
+                  <MenuItem value="APPROVED">Согласованные</MenuItem>
+                  <MenuItem value="REJECTED">Отклоненные</MenuItem>
+                  <MenuItem value="ISSUED">Выданные</MenuItem>
+                </Select>
+              </FormControl>
+            </Stack>
+            <TableContainer>
+              <Table size="small">
+                <TableHead>
+                  <TableRow>
+                    <TableCell>Номер</TableCell>
+                    <TableCell>Кто подал</TableCell>
+                    <TableCell>Кабинет / отдел</TableCell>
+                    <TableCell>Статус</TableCell>
+                    <TableCell>Приоритет</TableCell>
+                    <TableCell>Позиций</TableCell>
+                    <TableCell align="right">Действия</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {filteredRequests.map((request) => (
+                    <TableRow key={request.id} hover>
+                      <TableCell>
+                        <Button onClick={() => openRequestDetailsPage(request.id)}>{request.requestNumber}</Button>
+                      </TableCell>
+                      <TableCell>{request.requester?.fullName}</TableCell>
+                      <TableCell>{request.department?.name}</TableCell>
+                      <TableCell><StatusChip value={request.status} /></TableCell>
+                      <TableCell><StatusChip value={request.priority} /></TableCell>
+                      <TableCell>{request.items.length} поз.</TableCell>
+                      <TableCell align="right">
+                        <Stack direction="row" spacing={1} justifyContent="flex-end">
+                          {canManage && request.status === 'SUBMITTED' && (
+                            <>
+                              <Button size="small" variant="outlined" onClick={() => approveRequest(request.id)}>
+                                Согласовать
+                              </Button>
+                              <Button size="small" color="error" variant="outlined" onClick={() => rejectRequest(request.id)}>
+                                Отклонить
+                              </Button>
+                            </>
+                          )}
+                          {canManage && request.status === 'APPROVED' && (
+                            <Button size="small" variant="contained" onClick={() => issueRequest(request.id)}>
+                              Выдать
+                            </Button>
+                          )}
+                        </Stack>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          </Paper>
+        </Stack>
+      </Stack>
+    );
+  } else if (!isEmployee && section === 'inventory') {
+    content = (
+      <Stack spacing={3}>
+        {error ? <Alert severity="error">{error}</Alert> : null}
+        {message ? <Alert severity="info">{message}</Alert> : null}
+        <Grid container spacing={2.5}>
+          <Grid item xs={12}>
+            <Grid container spacing={2.5}>
+              <Grid item xs={12} sm={4}>
+                <StatCard title="Позиций на складе" value={state.items.length} hint="Все товары в системе" />
+              </Grid>
+              <Grid item xs={12} sm={4}>
+                <StatCard title="Нуждаются в пополнении" value={lowStockItems.length} hint="Ниже минимального остатка" />
+              </Grid>
+              <Grid item xs={12} sm={4}>
+                <StatCard title="Движений за период" value={state.movements.length} hint="Поступления и выдачи" />
+              </Grid>
+            </Grid>
+          </Grid>
+          <Grid item xs={12} lg={8}>
+            <Paper elevation={0} sx={panelSx}>
+              <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
+                <Box>
+                  <Typography variant="h6">Остатки на складе</Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Здесь видно, чего хватает, а что лучше пополнить заранее.
+                  </Typography>
+                </Box>
+              </Stack>
+              <TableContainer>
+                <Table size="small">
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>Товар</TableCell>
+                      <TableCell>Категория</TableCell>
+                      <TableCell>Остаток</TableCell>
+                      <TableCell>Мин. остаток</TableCell>
+                      <TableCell>Склад</TableCell>
+                      <TableCell align="right">Действия</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {state.items.map((item) => {
+                      const isLow = item.currentQuantity <= item.minQuantity;
+                      return (
+                        <TableRow key={item.id} hover>
+                          <TableCell>
+                            <Stack>
+                              <Typography fontWeight={700}>{item.name}</Typography>
+                              <Typography variant="body2" color="text.secondary">
+                                {item.sku}
+                              </Typography>
+                            </Stack>
+                          </TableCell>
+                          <TableCell>{item.category?.name}</TableCell>
+                          <TableCell>
+                            <Chip
+                              label={`${formatNumber(item.currentQuantity)} ${item.unit}`}
+                              color={isLow ? 'warning' : 'success'}
+                              variant="outlined"
+                            />
+                          </TableCell>
+                          <TableCell>{formatNumber(item.minQuantity)} {item.unit}</TableCell>
+                          <TableCell>{item.storageLocation}</TableCell>
+                          <TableCell align="right">
+                            <Button size="small" variant="outlined" onClick={() => setSelectedItemId(item.id)}>
+                              Пополнить
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            </Paper>
+          </Grid>
+          <Grid item xs={12} lg={4}>
+            <Paper elevation={0} sx={panelSx}>
+              <Typography variant="h6" sx={{ mb: 2 }}>
+                Последние движения
+              </Typography>
+              <Stack spacing={1.5}>
+                {recentMovements.map((movement) => (
+                  <Paper key={movement.id} variant="outlined" sx={{ p: 1.5, borderRadius: 1.5 }}>
+                    <Stack spacing={0.5}>
+                      <Stack direction="row" justifyContent="space-between">
+                        <Typography fontWeight={700}>{movement.item?.name}</Typography>
+                        <StatusChip value={movement.type} />
+                      </Stack>
+                      <Typography variant="body2" color="text.secondary">
+                        {movement.quantity} {movement.item?.unit} · {formatDateTime(movement.happenedAt)}
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        {movement.sourceDocument || 'Без документа'}
+                      </Typography>
+                    </Stack>
+                  </Paper>
+                ))}
+              </Stack>
+            </Paper>
+          </Grid>
+        </Grid>
+      </Stack>
+    );
+  } else if (!isEmployee && section === 'reports') {
+    content = (
+      <Stack spacing={3}>
+        {error ? <Alert severity="error">{error}</Alert> : null}
+        {message ? <Alert severity="info">{message}</Alert> : null}
+        <Stack spacing={2.5}>
+          <Grid container spacing={2.5}>
+            <Grid item xs={12} md={4}>
+              <StatCard title="Выдано заявок" value={state.dashboard.issuedRequests} hint="Закрыты выдачей товара" />
+            </Grid>
+            <Grid item xs={12} md={4}>
+              <StatCard title="Ожидают согласования" value={state.dashboard.submittedRequests} hint="Очередь на проверку" />
+            </Grid>
+            <Grid item xs={12} md={4}>
+              <StatCard title="Позиций в риске" value={lowStockItems.length} hint="Требуют пополнения" />
+            </Grid>
+          </Grid>
+
+          <Grid container spacing={2.5}>
+            <Grid item xs={12} lg={7}>
+              <Paper elevation={0} sx={panelSx}>
+                <Typography variant="h6" sx={{ mb: 2 }}>
+                  Товары с низким остатком
+                </Typography>
+                <TableContainer>
+                  <Table size="small">
+                    <TableHead>
+                      <TableRow>
+                        <TableCell>Товар</TableCell>
+                        <TableCell>Остаток</TableCell>
+                        <TableCell>Минимум</TableCell>
+                        <TableCell>Отклонение</TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {lowStockItems.map((item) => (
+                        <TableRow key={item.id}>
+                          <TableCell>{item.name}</TableCell>
+                          <TableCell>{formatNumber(item.currentQuantity)} {item.unit}</TableCell>
+                          <TableCell>{formatNumber(item.minQuantity)} {item.unit}</TableCell>
+                          <TableCell>
+                            <Typography color="warning.main" fontWeight={700}>
+                              {formatNumber(item.minQuantity - item.currentQuantity)} {item.unit}
+                            </Typography>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              </Paper>
+            </Grid>
+            <Grid item xs={12} lg={5}>
+              <Paper elevation={0} sx={panelSx}>
+                <Typography variant="h6" sx={{ mb: 2 }}>
+                  Движение по заявкам
+                </Typography>
+                <Stack spacing={1.5}>
+                  {state.requests.slice(0, 5).map((request) => (
+                    <Box key={request.id}>
+                      <Stack direction="row" justifyContent="space-between" sx={{ mb: 0.5 }}>
+                        <Typography fontWeight={700}>{request.requestNumber}</Typography>
+                        <StatusChip value={request.status} />
+                      </Stack>
+                      <Typography variant="body2" color="text.secondary">
+                        {request.requester?.fullName} · {request.department?.name}
+                      </Typography>
+                    </Box>
+                  ))}
+                </Stack>
+              </Paper>
+            </Grid>
+          </Grid>
+        </Stack>
+      </Stack>
+    );
+  } else if (canManage && section === 'users') {
+    content = (
+      <Stack spacing={3}>
+        {error ? <Alert severity="error">{error}</Alert> : null}
+        {message ? <Alert severity="info">{message}</Alert> : null}
+        <Grid container spacing={2.5}>
+          <Grid item xs={12} lg={6}>
+            <Paper elevation={0} sx={panelSx}>
+              <Typography variant="h6" sx={{ mb: 2 }}>
+                Сотрудники
+              </Typography>
+              <TableContainer>
+                <Table size="small">
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>ФИО</TableCell>
+                      <TableCell>Роль</TableCell>
+                      <TableCell>Кабинет / отдел</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {state.users.map((user) => (
+                      <TableRow key={user.id} hover>
+                        <TableCell>
+                          <Stack direction="row" spacing={1.5} alignItems="center">
+                            <Avatar sx={{ width: 32, height: 32 }}>{user.fullName[0]}</Avatar>
+                            <Box>
+                              <Typography fontWeight={700}>{user.fullName}</Typography>
+                              <Typography variant="body2" color="text.secondary">
+                                {user.email}
+                              </Typography>
+                            </Box>
+                          </Stack>
+                        </TableCell>
+                        <TableCell><StatusChip value={user.role} /></TableCell>
+                        <TableCell>{user.department?.name}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            </Paper>
+          </Grid>
+          <Grid item xs={12} lg={6}>
+            <Paper elevation={0} sx={panelSx}>
+              <Typography variant="h6" sx={{ mb: 2 }}>
+                Кабинеты и категории
+              </Typography>
+              <Grid container spacing={2}>
+                <Grid item xs={12} md={6}>
+                  <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
+                    Кабинеты / отделы
+                  </Typography>
+                  <Stack spacing={1}>
+                    {state.departments.map((department) => (
+                      <Paper key={department.id} variant="outlined" sx={{ p: 1.5, borderRadius: 1.5 }}>
+                        <Typography fontWeight={700}>{department.name}</Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          {department.code}
+                        </Typography>
+                      </Paper>
+                    ))}
+                  </Stack>
+                </Grid>
+                <Grid item xs={12} md={6}>
+                  <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
+                    Категории канцтоваров
+                  </Typography>
+                  <Stack spacing={1}>
+                    {state.categories.map((category) => (
+                      <Paper key={category.id} variant="outlined" sx={{ p: 1.5, borderRadius: 1.5 }}>
+                        <Typography fontWeight={700}>{category.name}</Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          {category.description}
+                        </Typography>
+                      </Paper>
+                    ))}
+                  </Stack>
+                </Grid>
+              </Grid>
+            </Paper>
+          </Grid>
+        </Grid>
+      </Stack>
+    );
+  } else {
+    content = (
+      <Stack spacing={3}>
+        {error ? <Alert severity="error">{error}</Alert> : null}
+        {message ? <Alert severity="info">{message}</Alert> : null}
+        <Paper elevation={0} sx={{ p: 4, borderRadius: 2, border: '1px solid rgba(15, 23, 42, 0.08)', maxWidth: 560, mx: 'auto' }}>
+          <Stack spacing={2} alignItems="center">
+            <Typography variant="h5">Раздел недоступен</Typography>
+            <Typography color="text.secondary" textAlign="center">
+              Этот раздел скрыт для вашей роли.
+            </Typography>
+          </Stack>
+        </Paper>
+      </Stack>
     );
   }
 
   return (
-    <Box sx={{ display: 'flex', minHeight: '100vh', background: 'linear-gradient(180deg, #eff6ff 0%, #f8fafc 24%, #f8fafc 100%)' }}>
-      <AppBar
-        position="fixed"
-        elevation={0}
-        sx={{
-          zIndex: (theme) => theme.zIndex.drawer + 1,
-          background: 'rgba(37, 99, 235, 0.92)',
-          backdropFilter: 'blur(16px)',
-        }}
+    <>
+      <AppShell
+        activeSection={activeSection}
+        activeUser={activeUser}
+        canManage={canManage}
+        onCreateRequest={openRequestCreatePage}
+        onLogout={logout}
+        onReceiveItem={() => setReceiveOpen(true)}
+        onSectionChange={handleSectionChange}
+        sectionTitles={sectionTitles}
+        visibleNavItems={visibleNavItems}
       >
-        <Toolbar sx={{ gap: 2 }}>
-          <Inventory2Icon />
-          <Box sx={{ flexGrow: 1 }}>
-            <Typography variant="h6">МБУ «Просветское»</Typography>
-            <Typography variant="body2" sx={{ opacity: 0.85 }}>
-              Заказы, согласование и складской учет канцтоваров
-            </Typography>
-          </Box>
-          <Stack direction="row" spacing={1.5} alignItems="center">
-            <Box sx={{ textAlign: 'right' }}>
-              <Typography variant="body2" fontWeight={700}>
-                {activeUser.fullName}
-              </Typography>
-              <Typography variant="caption" sx={{ opacity: 0.85 }}>
-                {activeUser.role}
-              </Typography>
-            </Box>
-            <Button variant="outlined" color="inherit" onClick={logout}>
-              Выйти
-            </Button>
-          </Stack>
-        </Toolbar>
-      </AppBar>
-
-      <Drawer
-        variant="permanent"
-        sx={{
-          width: drawerWidth,
-          flexShrink: 0,
-          [`& .MuiDrawer-paper`]: {
-            width: drawerWidth,
-            boxSizing: 'border-box',
-            borderRight: '1px solid rgba(15, 23, 42, 0.08)',
-            background: 'linear-gradient(180deg, #ffffff 0%, #f8fbff 100%)',
-          },
-        }}
-      >
-        <Toolbar />
-        <Box sx={{ overflow: 'auto', p: 2 }}>
-          <Paper elevation={0} sx={{ p: 2, borderRadius: 2, bgcolor: '#eff6ff', border: '1px solid #dbeafe', mb: 2 }}>
-            <Typography variant="subtitle2" color="text.secondary">
-              Кто вошел в систему
-            </Typography>
-            <Typography variant="h6">{activeUser?.position || activeUser?.role}</Typography>
-            <Typography variant="body2" color="text.secondary">
-              {activeUser?.fullName}
-            </Typography>
-          </Paper>
-
-          <List disablePadding>
-            {visibleNavItems.map((item) => (
-              <ListItemButton
-                key={item.key}
-                selected={section === item.key}
-                onClick={() => setSection(item.key)}
-                sx={{ borderRadius: 1.5, mb: 0.5 }}
-              >
-                <ListItemIcon sx={{ minWidth: 40 }}>{item.icon}</ListItemIcon>
-                <ListItemText primary={item.label} secondary={sectionTitles[item.key]} />
-              </ListItemButton>
-            ))}
-          </List>
-
-          <Divider sx={{ my: 2 }} />
-
-          <Stack spacing={1.5}>
-            <Button fullWidth variant="contained" startIcon={<AddIcon />} onClick={openRequestCreatePage} disabled={!canManage && activeUser?.role !== 'EMPLOYEE'}>
-              Создать заявку
-            </Button>
-            {canManage && (
-              <Button fullWidth variant="outlined" onClick={() => setReceiveOpen(true)}>
-                Пополнить склад
-              </Button>
-            )}
-          </Stack>
-        </Box>
-      </Drawer>
-
-      <Box component="main" sx={{ flexGrow: 1, p: 3 }}>
-        <Toolbar />
         <Container maxWidth="xl" disableGutters>
-          {loading ? (
-            <Stack alignItems="center" justifyContent="center" sx={{ minHeight: '60vh' }}>
-              <CircularProgress />
-              <Typography sx={{ mt: 2 }}>Загрузка данных...</Typography>
-            </Stack>
-          ) : (
-            <Stack spacing={3}>
-              {error ? <Alert severity="error">{error}</Alert> : null}
-              {message ? <Alert severity="info">{message}</Alert> : null}
-              <Paper elevation={0} sx={{ p: 3, borderRadius: 2, border: '1px solid rgba(15, 23, 42, 0.08)' }}>
-                <Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" spacing={2}>
-                  <Box>
-                    <Typography variant="overline" color="primary.main">
-                      {sectionTitles[section]}
-                    </Typography>
-                    <Typography variant="h4" sx={{ mt: 0.5 }}>
-                      {section === 'dashboard' && (isEmployee ? 'Мои заявки' : 'Рабочая панель')}
-                      {section === 'requests' && (isEmployee ? 'Мои заявки' : 'Заявки от сотрудников')}
-                      {section === 'inventory' && 'Остатки и поступления'}
-                      {section === 'reports' && 'Сводка по работе'}
-                      {section === 'users' && 'Сотрудники и кабинеты'}
-                    </Typography>
-                    <Typography color="text.secondary" sx={{ mt: 1 }}>
-                      {isEmployee
-                        ? 'Создавайте заявку, если в кабинете закончились канцтовары, и отслеживайте ее статус.'
-                        : 'Здесь видно, кто подал заявку, что согласовано, что выдано и что нужно пополнить.'}
-                    </Typography>
-                  </Box>
-                  <Stack direction="row" spacing={1} alignItems="start">
-                    <Button startIcon={<RefreshIcon />} variant="outlined" onClick={reloadApiSnapshot}>
-                      Обновить
-                    </Button>
-                    <Button startIcon={<AddIcon />} variant="contained" onClick={openRequestCreatePage}>
-                      Создать заявку
-                    </Button>
-                  </Stack>
-                </Stack>
-              </Paper>
-
-              {section === 'dashboard' && (
-                <Stack spacing={3}>
-                  <Paper elevation={0} sx={{ ...panelSx, overflow: 'hidden', position: 'relative' }}>
-                    <Box
-                      sx={{
-                        position: 'absolute',
-                        inset: 0,
-                        background: 'radial-gradient(circle at top right, rgba(37, 99, 235, 0.10), transparent 38%), radial-gradient(circle at left bottom, rgba(245, 158, 11, 0.10), transparent 30%)',
-                        pointerEvents: 'none',
-                      }}
-                    />
-                    <Grid container spacing={2.5} sx={{ position: 'relative' }}>
-                      <Grid item xs={12} md={8}>
-                        <Stack spacing={1.5}>
-                          <Typography variant="overline" color="primary.main">
-                            Рабочий день в школе
-                          </Typography>
-                          <Typography variant="h4">
-                            Все заявки и канцтовары в одном понятном окне
-                          </Typography>
-                          <Typography color="text.secondary">
-                            Учитель или сотрудник подает заявку, ответственный согласует, склад выдает товар, а система сама считает остатки.
-                          </Typography>
-                          <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-                            <Chip icon={<TaskAltIcon />} label={`${pendingRequests.length} заявок ждут согласования`} variant="outlined" />
-                            <Chip icon={<LocalShippingIcon />} label={`${readyToIssueRequests.length} заявок готовы к выдаче`} variant="outlined" />
-                            <Chip icon={<HistoryIcon />} label={`${state.movements.length} операций в журнале`} variant="outlined" />
-                          </Stack>
-                        </Stack>
-                      </Grid>
-                      <Grid item xs={12} md={4}>
-                        <Paper elevation={0} sx={mutedPanelSx}>
-                          <Typography variant="subtitle2" color="text.secondary">
-                            Что сделать сейчас
-                          </Typography>
-                          <Stack spacing={1.25} sx={{ mt: 1.5 }}>
-                            <Button fullWidth variant="contained" startIcon={<AddIcon />} onClick={openRequestCreatePage}>
-                              Создать заявку
-                            </Button>
-                            <Button fullWidth variant="outlined" onClick={() => setSection('requests')}>
-                              Проверить заявки
-                            </Button>
-                          </Stack>
-                        </Paper>
-                      </Grid>
-                    </Grid>
-                  </Paper>
-
-                  <Grid container spacing={2.5}>
-                    <Grid item xs={12} sm={6} md={3}>
-                      <StatCard title="Всего заявок" value={state.dashboard.totalRequests} hint="Общий поток заявок" />
-                    </Grid>
-                    <Grid item xs={12} sm={6} md={3}>
-                      <StatCard title="Ждут согласования" value={state.dashboard.submittedRequests} hint="Нужно проверить" />
-                    </Grid>
-                    <Grid item xs={12} sm={6} md={3}>
-                      <StatCard title="Готовы к выдаче" value={state.dashboard.approvedRequests} hint="Можно выдавать" />
-                    </Grid>
-                    <Grid item xs={12} sm={6} md={3}>
-                      <StatCard title="Нужно пополнить" value={state.dashboard.lowStockItems} hint="Остаток ниже нормы" />
-                    </Grid>
-                  </Grid>
-
-                  <Grid container spacing={2.5}>
-                    <Grid item xs={12}>
-                      <Paper elevation={0} sx={panelSx}>
-                        <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
-                          <Box>
-                            <Typography variant="h6">Последние заявки</Typography>
-                            <Typography variant="body2" color="text.secondary">
-                              Можно быстро открыть заявку и посмотреть состав.
-                            </Typography>
-                          </Box>
-                          <Button size="small" variant="outlined" onClick={() => setSection('requests')}>
-                            Все заявки
-                          </Button>
-                        </Stack>
-                        <TableContainer>
-                          <Table size="small">
-                            <TableHead>
-                              <TableRow>
-                                <TableCell>Номер</TableCell>
-                                <TableCell>Кто подал</TableCell>
-                                <TableCell>Статус</TableCell>
-                                <TableCell>Приоритет</TableCell>
-                                <TableCell align="right">Дата</TableCell>
-                              </TableRow>
-                            </TableHead>
-                            <TableBody>
-                              {state.dashboard.recentRequests.map((request) => (
-                                <TableRow key={request.id} hover>
-                                  <TableCell>
-                                    <Button onClick={() => openRequestDetailsPage(request.id)}>{request.requestNumber}</Button>
-                                  </TableCell>
-                                  <TableCell>{request.requester?.fullName}</TableCell>
-                                  <TableCell><StatusChip value={request.status} /></TableCell>
-                                  <TableCell><StatusChip value={request.priority} /></TableCell>
-                                  <TableCell align="right">{formatDateTime(request.createdAt)}</TableCell>
-                                </TableRow>
-                              ))}
-                            </TableBody>
-                          </Table>
-                        </TableContainer>
-                      </Paper>
-                    </Grid>
-                  </Grid>
-                </Stack>
-              )}
-
-              {section === 'requests' && (
-                <Stack spacing={2.5}>
-                  <Grid container spacing={2.5}>
-                    <Grid item xs={12} sm={6} md={3}>
-                      <StatCard title="Новые" value={state.dashboard.submittedRequests} hint="Ждут проверки" />
-                    </Grid>
-                    <Grid item xs={12} sm={6} md={3}>
-                      <StatCard title="Согласованы" value={state.dashboard.approvedRequests} hint="Готовы к выдаче" />
-                    </Grid>
-                    <Grid item xs={12} sm={6} md={3}>
-                      <StatCard title="Выданы" value={state.dashboard.issuedRequests} hint="Закрытые заявки" />
-                    </Grid>
-                    <Grid item xs={12} sm={6} md={3}>
-                      <StatCard title="Отклонены" value={state.dashboard.rejectedRequests} hint="Требуют уточнения" />
-                    </Grid>
-                  </Grid>
-                  <Paper elevation={0} sx={panelSx}>
-                    <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} sx={{ mb: 2 }}>
-                      <TextField fullWidth label="Поиск по заявке, ФИО или кабинету" value={search} onChange={(event) => setSearch(event.target.value)} />
-                      <FormControl sx={{ minWidth: 220 }}>
-                        <Select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
-                          <MenuItem value="ALL">Все заявки</MenuItem>
-                          <MenuItem value="SUBMITTED">Новые</MenuItem>
-                          <MenuItem value="APPROVED">Согласованные</MenuItem>
-                          <MenuItem value="REJECTED">Отклоненные</MenuItem>
-                          <MenuItem value="ISSUED">Выданные</MenuItem>
-                        </Select>
-                      </FormControl>
-                    </Stack>
-                    <TableContainer>
-                      <Table size="small">
-                        <TableHead>
-                          <TableRow>
-                            <TableCell>Номер</TableCell>
-                            <TableCell>Кто подал</TableCell>
-                            <TableCell>Кабинет / отдел</TableCell>
-                            <TableCell>Статус</TableCell>
-                            <TableCell>Приоритет</TableCell>
-                            <TableCell>Позиций</TableCell>
-                            <TableCell align="right">Действия</TableCell>
-                          </TableRow>
-                        </TableHead>
-                        <TableBody>
-                          {filteredRequests.map((request) => (
-                            <TableRow key={request.id} hover>
-                              <TableCell>
-                                <Button onClick={() => openRequestDetailsPage(request.id)}>{request.requestNumber}</Button>
-                              </TableCell>
-                              <TableCell>{request.requester?.fullName}</TableCell>
-                              <TableCell>{request.department?.name}</TableCell>
-                              <TableCell><StatusChip value={request.status} /></TableCell>
-                              <TableCell><StatusChip value={request.priority} /></TableCell>
-                              <TableCell>{request.items.length} поз.</TableCell>
-                              <TableCell align="right">
-                                <Stack direction="row" spacing={1} justifyContent="flex-end">
-                                  {canManage && request.status === 'SUBMITTED' && (
-                                    <>
-                                      <Button size="small" variant="outlined" onClick={() => approveRequest(request.id)}>
-                                        Согласовать
-                                      </Button>
-                                      <Button size="small" color="error" variant="outlined" onClick={() => rejectRequest(request.id)}>
-                                        Отклонить
-                                      </Button>
-                                    </>
-                                  )}
-                                  {canManage && request.status === 'APPROVED' && (
-                                    <Button size="small" variant="contained" onClick={() => issueRequest(request.id)}>
-                                      Выдать
-                                    </Button>
-                                  )}
-                                </Stack>
-                              </TableCell>
-                            </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
-                    </TableContainer>
-                  </Paper>
-                </Stack>
-              )}
-
-              {!isEmployee && section === 'inventory' && (
-                <Grid container spacing={2.5}>
-                  <Grid item xs={12}>
-                    <Grid container spacing={2.5}>
-                      <Grid item xs={12} sm={4}>
-                        <StatCard title="Позиций на складе" value={state.items.length} hint="Все товары в системе" />
-                      </Grid>
-                      <Grid item xs={12} sm={4}>
-                        <StatCard title="Нуждаются в пополнении" value={lowStockItems.length} hint="Ниже минимального остатка" />
-                      </Grid>
-                      <Grid item xs={12} sm={4}>
-                        <StatCard title="Движений за период" value={state.movements.length} hint="Поступления и выдачи" />
-                      </Grid>
-                    </Grid>
-                  </Grid>
-                  <Grid item xs={12} lg={8}>
-                    <Paper elevation={0} sx={panelSx}>
-                      <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
-                        <Box>
-                          <Typography variant="h6">Остатки на складе</Typography>
-                          <Typography variant="body2" color="text.secondary">
-                            Здесь видно, чего хватает, а что лучше пополнить заранее.
-                          </Typography>
-                        </Box>
-                      </Stack>
-                      <TableContainer>
-                        <Table size="small">
-                          <TableHead>
-                            <TableRow>
-                              <TableCell>Товар</TableCell>
-                              <TableCell>Категория</TableCell>
-                              <TableCell>Остаток</TableCell>
-                              <TableCell>Мин. остаток</TableCell>
-                              <TableCell>Склад</TableCell>
-                              <TableCell align="right">Действия</TableCell>
-                            </TableRow>
-                          </TableHead>
-                          <TableBody>
-                            {state.items.map((item) => {
-                              const isLow = item.currentQuantity <= item.minQuantity;
-                              return (
-                                <TableRow key={item.id} hover>
-                                  <TableCell>
-                                    <Stack>
-                                      <Typography fontWeight={700}>{item.name}</Typography>
-                                      <Typography variant="body2" color="text.secondary">
-                                        {item.sku}
-                                      </Typography>
-                                    </Stack>
-                                  </TableCell>
-                                  <TableCell>{item.category?.name}</TableCell>
-                                  <TableCell>
-                                    <Chip
-                                      label={`${formatNumber(item.currentQuantity)} ${item.unit}`}
-                                      color={isLow ? 'warning' : 'success'}
-                                      variant="outlined"
-                                    />
-                                  </TableCell>
-                                  <TableCell>{formatNumber(item.minQuantity)} {item.unit}</TableCell>
-                                  <TableCell>{item.storageLocation}</TableCell>
-                                  <TableCell align="right">
-                                    <Button size="small" variant="outlined" onClick={() => setSelectedItemId(item.id)}>
-                                      Пополнить
-                                    </Button>
-                                  </TableCell>
-                                </TableRow>
-                              );
-                            })}
-                          </TableBody>
-                        </Table>
-                      </TableContainer>
-                    </Paper>
-                  </Grid>
-                  <Grid item xs={12} lg={4}>
-                    <Paper elevation={0} sx={panelSx}>
-                      <Typography variant="h6" sx={{ mb: 2 }}>
-                        Последние движения
-                      </Typography>
-                      <Stack spacing={1.5}>
-                        {recentMovements.map((movement) => (
-                          <Paper key={movement.id} variant="outlined" sx={{ p: 1.5, borderRadius: 1.5 }}>
-                            <Stack spacing={0.5}>
-                              <Stack direction="row" justifyContent="space-between">
-                                <Typography fontWeight={700}>{movement.item?.name}</Typography>
-                                <StatusChip value={movement.type} />
-                              </Stack>
-                              <Typography variant="body2" color="text.secondary">
-                                {movement.quantity} {movement.item?.unit} · {formatDateTime(movement.happenedAt)}
-                              </Typography>
-                              <Typography variant="body2" color="text.secondary">
-                                {movement.sourceDocument || 'Без документа'}
-                              </Typography>
-                            </Stack>
-                          </Paper>
-                        ))}
-                      </Stack>
-                    </Paper>
-                  </Grid>
-                </Grid>
-              )}
-
-              {!isEmployee && section === 'reports' && (
-                <Stack spacing={2.5}>
-                  <Grid container spacing={2.5}>
-                    <Grid item xs={12} md={4}>
-                      <StatCard title="Выдано заявок" value={state.dashboard.issuedRequests} hint="Закрыты выдачей товара" />
-                    </Grid>
-                    <Grid item xs={12} md={4}>
-                      <StatCard title="Ожидают согласования" value={state.dashboard.submittedRequests} hint="Очередь на проверку" />
-                    </Grid>
-                    <Grid item xs={12} md={4}>
-                      <StatCard title="Позиций в риске" value={lowStockItems.length} hint="Требуют пополнения" />
-                    </Grid>
-                  </Grid>
-
-                  <Grid container spacing={2.5}>
-                    <Grid item xs={12} lg={7}>
-                      <Paper elevation={0} sx={panelSx}>
-                        <Typography variant="h6" sx={{ mb: 2 }}>
-                          Товары с низким остатком
-                        </Typography>
-                        <TableContainer>
-                          <Table size="small">
-                            <TableHead>
-                              <TableRow>
-                                <TableCell>Товар</TableCell>
-                                <TableCell>Остаток</TableCell>
-                                <TableCell>Минимум</TableCell>
-                                <TableCell>Отклонение</TableCell>
-                              </TableRow>
-                            </TableHead>
-                            <TableBody>
-                              {lowStockItems.map((item) => (
-                                <TableRow key={item.id}>
-                                  <TableCell>{item.name}</TableCell>
-                                  <TableCell>{formatNumber(item.currentQuantity)} {item.unit}</TableCell>
-                                  <TableCell>{formatNumber(item.minQuantity)} {item.unit}</TableCell>
-                                  <TableCell>
-                                    <Typography color="warning.main" fontWeight={700}>
-                                      {formatNumber(item.minQuantity - item.currentQuantity)} {item.unit}
-                                    </Typography>
-                                  </TableCell>
-                                </TableRow>
-                              ))}
-                            </TableBody>
-                          </Table>
-                        </TableContainer>
-                      </Paper>
-                    </Grid>
-                    <Grid item xs={12} lg={5}>
-                      <Paper elevation={0} sx={panelSx}>
-                        <Typography variant="h6" sx={{ mb: 2 }}>
-                          Движение по заявкам
-                        </Typography>
-                        <Stack spacing={1.5}>
-                          {state.requests.slice(0, 5).map((request) => (
-                            <Box key={request.id}>
-                              <Stack direction="row" justifyContent="space-between" sx={{ mb: 0.5 }}>
-                                <Typography fontWeight={700}>{request.requestNumber}</Typography>
-                                <StatusChip value={request.status} />
-                              </Stack>
-                              <Typography variant="body2" color="text.secondary">
-                                {request.requester?.fullName} · {request.department?.name}
-                              </Typography>
-                            </Box>
-                          ))}
-                        </Stack>
-                      </Paper>
-                    </Grid>
-                  </Grid>
-                </Stack>
-              )}
-
-              {canManage && section === 'users' && (
-                <Grid container spacing={2.5}>
-                  <Grid item xs={12} lg={6}>
-                    <Paper elevation={0} sx={panelSx}>
-                      <Typography variant="h6" sx={{ mb: 2 }}>
-                        Сотрудники
-                      </Typography>
-                      <TableContainer>
-                        <Table size="small">
-                          <TableHead>
-                            <TableRow>
-                              <TableCell>ФИО</TableCell>
-                              <TableCell>Роль</TableCell>
-                              <TableCell>Кабинет / отдел</TableCell>
-                            </TableRow>
-                          </TableHead>
-                          <TableBody>
-                            {state.users.map((user) => (
-                              <TableRow key={user.id} hover>
-                                <TableCell>
-                                  <Stack direction="row" spacing={1.5} alignItems="center">
-                                    <Avatar sx={{ width: 32, height: 32 }}>{user.fullName[0]}</Avatar>
-                                    <Box>
-                                      <Typography fontWeight={700}>{user.fullName}</Typography>
-                                      <Typography variant="body2" color="text.secondary">
-                                        {user.email}
-                                      </Typography>
-                                    </Box>
-                                  </Stack>
-                                </TableCell>
-                                <TableCell><StatusChip value={user.role} /></TableCell>
-                                <TableCell>{user.department?.name}</TableCell>
-                              </TableRow>
-                            ))}
-                          </TableBody>
-                        </Table>
-                      </TableContainer>
-                    </Paper>
-                  </Grid>
-                  <Grid item xs={12} lg={6}>
-                    <Paper elevation={0} sx={panelSx}>
-                      <Typography variant="h6" sx={{ mb: 2 }}>
-                        Кабинеты и категории
-                      </Typography>
-                      <Grid container spacing={2}>
-                        <Grid item xs={12} md={6}>
-                          <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
-                            Кабинеты / отделы
-                          </Typography>
-                          <Stack spacing={1}>
-                            {state.departments.map((department) => (
-                              <Paper key={department.id} variant="outlined" sx={{ p: 1.5, borderRadius: 1.5 }}>
-                                <Typography fontWeight={700}>{department.name}</Typography>
-                                <Typography variant="body2" color="text.secondary">
-                                  {department.code}
-                                </Typography>
-                              </Paper>
-                            ))}
-                          </Stack>
-                        </Grid>
-                        <Grid item xs={12} md={6}>
-                          <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
-                            Категории канцтоваров
-                          </Typography>
-                          <Stack spacing={1}>
-                            {state.categories.map((category) => (
-                              <Paper key={category.id} variant="outlined" sx={{ p: 1.5, borderRadius: 1.5 }}>
-                                <Typography fontWeight={700}>{category.name}</Typography>
-                                <Typography variant="body2" color="text.secondary">
-                                  {category.description}
-                                </Typography>
-                              </Paper>
-                            ))}
-                          </Stack>
-                        </Grid>
-                      </Grid>
-                    </Paper>
-                  </Grid>
-                </Grid>
-              )}
-            </Stack>
-          )}
+          {content}
         </Container>
-      </Box>
+      </AppShell>
 
       <ReceiveDialog
         open={receiveOpen}
@@ -1126,23 +1066,23 @@ export default function App() {
 
       <Drawer anchor="right" open={Boolean(selectedItem)} onClose={() => setSelectedItemId(null)}>
         <Box sx={{ width: 420, p: 3 }}>
-              {selectedItem ? (
-                <Stack spacing={2}>
-                  <Typography variant="h5">{selectedItem.name}</Typography>
-                  <Typography color="text.secondary">{selectedItem.description}</Typography>
-                  <Stack direction="row" spacing={1}>
-                    <Chip label={selectedItem.category?.name || 'Категория'} variant="outlined" />
-                    <Chip label={selectedItem.active ? 'Активный' : 'Неактивный'} color={selectedItem.active ? 'success' : 'default'} />
-                    <Chip label={selectedItem.sku} variant="outlined" />
-                  </Stack>
-                  <Divider />
-                  <Typography>Остаток: {formatNumber(selectedItem.currentQuantity)} {selectedItem.unit}</Typography>
-                  <Typography>Минимум: {formatNumber(selectedItem.minQuantity)} {selectedItem.unit}</Typography>
-                  <Typography>Склад: {selectedItem.storageLocation}</Typography>
+          {selectedItem ? (
+            <Stack spacing={2}>
+              <Typography variant="h5">{selectedItem.name}</Typography>
+              <Typography color="text.secondary">{selectedItem.description}</Typography>
+              <Stack direction="row" spacing={1}>
+                <Chip label={selectedItem.category?.name || 'Категория'} variant="outlined" />
+                <Chip label={selectedItem.active ? 'Активный' : 'Неактивный'} color={selectedItem.active ? 'success' : 'default'} />
+                <Chip label={selectedItem.sku} variant="outlined" />
+              </Stack>
+              <Divider />
+              <Typography>Остаток: {formatNumber(selectedItem.currentQuantity)} {selectedItem.unit}</Typography>
+              <Typography>Минимум: {formatNumber(selectedItem.minQuantity)} {selectedItem.unit}</Typography>
+              <Typography>Склад: {selectedItem.storageLocation}</Typography>
             </Stack>
           ) : null}
         </Box>
       </Drawer>
-    </Box>
+    </>
   );
 }

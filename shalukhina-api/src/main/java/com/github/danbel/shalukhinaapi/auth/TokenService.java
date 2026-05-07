@@ -4,6 +4,7 @@ import com.github.danbel.shalukhinaapi.domain.SystemUser;
 import com.github.danbel.shalukhinaapi.domain.UserRole;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.Base64;
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
@@ -20,7 +21,8 @@ public class TokenService {
     }
 
     public String createToken(SystemUser user) {
-        String payload = user.getId() + "|" + user.getUsername() + "|" + user.getRole().name() + "|" + Instant.now().toEpochMilli();
+        Instant expiresAt = Instant.now().plus(3650, ChronoUnit.DAYS);
+        String payload = user.getId() + "|" + user.getUsername() + "|" + user.getRole().name() + "|" + Instant.now().toEpochMilli() + "|" + expiresAt.toEpochMilli();
         String encodedPayload = base64Url(payload.getBytes(StandardCharsets.UTF_8));
         String signature = sign(encodedPayload);
         return encodedPayload + "." + signature;
@@ -41,7 +43,11 @@ public class TokenService {
         }
         String decoded = new String(Base64.getUrlDecoder().decode(payload), StandardCharsets.UTF_8);
         String[] values = decoded.split("\\|");
-        if (values.length < 4) {
+        if (values.length < 5) {
+            return null;
+        }
+        long expiresAt = Long.parseLong(values[4]);
+        if (Instant.now().toEpochMilli() > expiresAt) {
             return null;
         }
         return new TokenPrincipal(Long.valueOf(values[0]), values[1], UserRole.valueOf(values[2]));
