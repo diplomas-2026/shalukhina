@@ -22,7 +22,7 @@ import DeleteIcon from '@mui/icons-material/Delete';
 
 const emptyLine = { itemId: '', quantity: 1 };
 
-export function PurchaseOrderDialog({ open, items, initialItems, onClose, onSubmit }) {
+export function PurchaseOrderDialog({ open, items, warehouses, initialItems, initialDeliveryLocation, onClose, onSubmit }) {
   const initialLines = useMemo(() => {
     if (initialItems?.length) {
       return initialItems.map((line) => ({
@@ -34,15 +34,17 @@ export function PurchaseOrderDialog({ open, items, initialItems, onClose, onSubm
   }, [initialItems, items]);
 
   const [comment, setComment] = useState('');
+  const [deliveryLocation, setDeliveryLocation] = useState(initialDeliveryLocation || 'Склад МБУ Просветское');
   const [lines, setLines] = useState(initialLines);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
   useEffect(() => {
     setComment('');
+    setDeliveryLocation(initialDeliveryLocation || 'Склад МБУ Просветское');
     setLines(initialLines);
     setError('');
-  }, [initialLines, open]);
+  }, [initialDeliveryLocation, initialLines, open]);
 
   useEffect(() => {
     if (!items.length) {
@@ -53,7 +55,8 @@ export function PurchaseOrderDialog({ open, items, initialItems, onClose, onSubm
     );
   }, [items]);
 
-  const canSubmit = lines.length > 0 && lines.every((line) => line.itemId && Number(line.quantity) > 0);
+  const canSubmit = Boolean(deliveryLocation.trim()) && lines.length > 0 && lines.every((line) => line.itemId && Number(line.quantity) > 0);
+  const hasWarehouses = Array.isArray(warehouses) && warehouses.length > 0;
 
   const updateLine = (index, patch) => {
     setLines((current) => current.map((line, lineIndex) => (lineIndex === index ? { ...line, ...patch } : line)));
@@ -72,6 +75,7 @@ export function PurchaseOrderDialog({ open, items, initialItems, onClose, onSubm
     setError('');
     try {
       await onSubmit({
+        deliveryLocation,
         comment,
         items: lines.map((line) => ({
           itemId: Number(line.itemId),
@@ -98,6 +102,29 @@ export function PurchaseOrderDialog({ open, items, initialItems, onClose, onSubm
           </Box>
 
           {error ? <Alert severity="error">{error}</Alert> : null}
+
+          {hasWarehouses ? (
+            <FormControl fullWidth>
+              <Typography variant="caption" color="text.secondary" sx={{ mb: 0.5 }}>
+                Склад доставки
+              </Typography>
+              <Select value={deliveryLocation} onChange={(event) => setDeliveryLocation(event.target.value)}>
+                {warehouses.map((warehouse) => (
+                  <MenuItem key={warehouse.id} value={warehouse.name}>
+                    {warehouse.name}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          ) : (
+            <TextField
+              fullWidth
+              label="Склад доставки"
+              value={deliveryLocation}
+              onChange={(event) => setDeliveryLocation(event.target.value)}
+              helperText="Укажите, куда должна поступить закупка."
+            />
+          )}
 
           <TextField
             fullWidth

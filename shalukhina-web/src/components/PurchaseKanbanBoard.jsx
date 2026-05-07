@@ -162,6 +162,9 @@ export function PurchaseKanbanBoard({ purchases, onMovePurchase, onOpenPurchase,
                           {purchase.items.length} позиций
                         </Typography>
                         <Typography variant="body2" color="text.secondary">
+                          Доставка: {purchase.deliveryLocation || 'Не указано'}
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary">
                           {formatDateTime(purchase.createdAt)}
                         </Typography>
                         {isLoading ? (

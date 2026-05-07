@@ -13,6 +13,7 @@ import com.github.danbel.shalukhinaapi.domain.SupplyRequest;
 import com.github.danbel.shalukhinaapi.domain.SupplyRequestItem;
 import com.github.danbel.shalukhinaapi.domain.SystemUser;
 import com.github.danbel.shalukhinaapi.domain.UserRole;
+import com.github.danbel.shalukhinaapi.domain.Warehouse;
 import com.github.danbel.shalukhinaapi.repo.DepartmentRepository;
 import com.github.danbel.shalukhinaapi.repo.RequestChatMessageRepository;
 import com.github.danbel.shalukhinaapi.repo.PurchaseOrderRepository;
@@ -21,6 +22,7 @@ import com.github.danbel.shalukhinaapi.repo.StockMovementRepository;
 import com.github.danbel.shalukhinaapi.repo.SupplyCategoryRepository;
 import com.github.danbel.shalukhinaapi.repo.SupplyItemRepository;
 import com.github.danbel.shalukhinaapi.repo.SystemUserRepository;
+import com.github.danbel.shalukhinaapi.repo.WarehouseRepository;
 import com.github.danbel.shalukhinaapi.service.RequestService;
 import com.github.danbel.shalukhinaapi.service.PurchaseOrderService;
 import java.math.BigDecimal;
@@ -41,6 +43,7 @@ public class SeedDataInitializer implements CommandLineRunner {
     private final SupplyRequestRepository requestRepository;
     private final RequestChatMessageRepository chatMessageRepository;
     private final PurchaseOrderRepository purchaseOrderRepository;
+    private final WarehouseRepository warehouseRepository;
     private final StockMovementRepository movementRepository;
     private final RequestService requestService;
     private final PurchaseOrderService purchaseOrderService;
@@ -162,15 +165,20 @@ public class SeedDataInitializer implements CommandLineRunner {
         presentation.setDescription("Маркерные доски, флипчарты, стикеры для совещаний");
         categoryRepository.save(presentation);
 
+        Warehouse mainWarehouse = buildWarehouse("WH-MAIN", "Основной склад", "Главный склад канцтоваров");
+        Warehouse reserveWarehouse = buildWarehouse("WH-RESERVE", "Резервный склад", "Резерв для экстренного пополнения");
+        Warehouse schoolWarehouse = buildWarehouse("WH-SCHOOL", "Школьный склад", "Склад для выдачи по кабинетам");
+        warehouseRepository.saveAll(List.of(mainWarehouse, reserveWarehouse, schoolWarehouse));
+
         List<SupplyItem> items = itemRepository.saveAll(List.of(
-                buildItem("Бумага A4", "A4-001", paper, "пачка", new BigDecimal("48"), new BigDecimal("10"), "Склад 1"),
-                buildItem("Ручка шариковая синяя", "PEN-002", writing, "шт", new BigDecimal("180"), new BigDecimal("30"), "Склад 1"),
-                buildItem("Карандаш HB", "PEN-003", writing, "шт", new BigDecimal("96"), new BigDecimal("20"), "Склад 1"),
-                buildItem("Папка-скоросшиватель", "FIL-004", filing, "шт", new BigDecimal("64"), new BigDecimal("15"), "Склад 2"),
-                buildItem("Файл прозрачный", "FIL-005", filing, "шт", new BigDecimal("240"), new BigDecimal("60"), "Склад 2"),
-                buildItem("Стикеры", "OFF-006", paper, "упак", new BigDecimal("18"), new BigDecimal("5"), "Склад 1"),
-                buildItem("Маркеры для доски", "PRES-007", presentation, "набор", new BigDecimal("22"), new BigDecimal("6"), "Склад 3"),
-                buildItem("Блокнот А5", "NOTE-008", paper, "шт", new BigDecimal("35"), new BigDecimal("12"), "Склад 1")
+                buildItem("Бумага A4", "A4-001", paper, "пачка", new BigDecimal("48"), new BigDecimal("10"), mainWarehouse.getName()),
+                buildItem("Ручка шариковая синяя", "PEN-002", writing, "шт", new BigDecimal("180"), new BigDecimal("30"), mainWarehouse.getName()),
+                buildItem("Карандаш HB", "PEN-003", writing, "шт", new BigDecimal("96"), new BigDecimal("20"), schoolWarehouse.getName()),
+                buildItem("Папка-скоросшиватель", "FIL-004", filing, "шт", new BigDecimal("64"), new BigDecimal("15"), reserveWarehouse.getName()),
+                buildItem("Файл прозрачный", "FIL-005", filing, "шт", new BigDecimal("240"), new BigDecimal("60"), reserveWarehouse.getName()),
+                buildItem("Стикеры", "OFF-006", paper, "упак", new BigDecimal("18"), new BigDecimal("5"), mainWarehouse.getName()),
+                buildItem("Маркеры для доски", "PRES-007", presentation, "набор", new BigDecimal("22"), new BigDecimal("6"), schoolWarehouse.getName()),
+                buildItem("Блокнот А5", "NOTE-008", paper, "шт", new BigDecimal("35"), new BigDecimal("12"), mainWarehouse.getName())
         ));
 
         createSeedRequest(employee, servicesDepartment, RequestPriority.NORMAL, "Запрос на текущую неделю", List.of(
@@ -231,6 +239,7 @@ public class SeedDataInitializer implements CommandLineRunner {
 
         PurchaseOrder draft = purchaseOrderService.create(new PurchaseOrderService.CreatePurchaseOrderCommand(
                 responsible.getId(),
+                "Склад МБУ Просветское",
                 "Черновик закупки для канцелярии",
                 List.of(
                         new PurchaseOrderService.CreatePurchaseOrderItemCommand(items.get(0).getId(), new BigDecimal("25")),
@@ -245,6 +254,7 @@ public class SeedDataInitializer implements CommandLineRunner {
 
         PurchaseOrder ordered = purchaseOrderService.create(new PurchaseOrderService.CreatePurchaseOrderCommand(
                 accountant.getId(),
+                "Склад МБУ Просветское",
                 "Заказ на ручки и файлы",
                 List.of(
                         new PurchaseOrderService.CreatePurchaseOrderItemCommand(items.get(4).getId(), new BigDecimal("120")),
@@ -262,6 +272,7 @@ public class SeedDataInitializer implements CommandLineRunner {
 
         PurchaseOrder completed = purchaseOrderService.create(new PurchaseOrderService.CreatePurchaseOrderCommand(
                 admin.getId(),
+                "Склад МБУ Просветское",
                 "Поставка бумаги и блокнотов",
                 List.of(
                         new PurchaseOrderService.CreatePurchaseOrderItemCommand(items.get(0).getId(), new BigDecimal("40")),
@@ -289,6 +300,15 @@ public class SeedDataInitializer implements CommandLineRunner {
         item.setStorageLocation(location);
         item.setDescription(name + " для нужд учреждения");
         return item;
+    }
+
+    private Warehouse buildWarehouse(String code, String name, String description) {
+        Warehouse warehouse = new Warehouse();
+        warehouse.setCode(code);
+        warehouse.setName(name);
+        warehouse.setDescription(description);
+        warehouse.setActive(true);
+        return warehouse;
     }
 
     private SupplyRequest createSeedRequest(SystemUser requester, Department department, RequestPriority priority, String comment, List<RequestLine> lines) {

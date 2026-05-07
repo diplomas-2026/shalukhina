@@ -131,6 +131,10 @@ public class RequestService {
             throw new IllegalArgumentException("Status is required");
         }
 
+        if (command.status() == RequestStatus.ISSUED) {
+            return issueInternal(request, actor, command.note(), command.note());
+        }
+
         request.setStatus(command.status());
         if (command.status() == RequestStatus.APPROVED) {
             request.setApprovedBy(actor);
@@ -169,14 +173,18 @@ public class RequestService {
     @Transactional
     public SupplyRequest issue(Long requestId, Long actorId, String document) {
         SupplyRequest request = getRequest(requestId);
+        SystemUser actor = userRepository.findById(actorId)
+                .orElseThrow(() -> new DomainNotFoundException("User not found: " + actorId));
+
+        return issueInternal(request, actor, document, document);
+    }
+
+    private SupplyRequest issueInternal(SupplyRequest request, SystemUser actor, String document, String note) {
         if (request.getStatus() == RequestStatus.REJECTED
                 || request.getStatus() == RequestStatus.CANCELLED
                 || request.getStatus() == RequestStatus.ISSUED) {
             throw new IllegalStateException("Request cannot be issued in current status");
         }
-
-        SystemUser actor = userRepository.findById(actorId)
-                .orElseThrow(() -> new DomainNotFoundException("User not found: " + actorId));
 
         for (SupplyRequestItem requestItem : request.getItems()) {
             SupplyItem item = requestItem.getItem();
@@ -200,8 +208,11 @@ public class RequestService {
         }
 
         request.setStatus(RequestStatus.ISSUED);
+        request.setApprovedBy(actor);
+        request.setApprovedAt(Instant.now());
         SupplyRequest savedRequest = requestRepository.save(request);
-        addStatusHistory(savedRequest, actor, RequestStatus.ISSUED, document == null || document.isBlank() ? "Товары выданы" : document);
+        String historyNote = note == null || note.isBlank() ? "Товары выданы" : note;
+        addStatusHistory(savedRequest, actor, RequestStatus.ISSUED, historyNote);
         return savedRequest;
     }
 

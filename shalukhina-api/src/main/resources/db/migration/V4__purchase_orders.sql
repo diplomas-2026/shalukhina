@@ -6,6 +6,7 @@ create table purchase_orders (
     status varchar(32) not null,
     comment varchar(500) null,
     created_by_id bigint not null,
+    delivery_location varchar(255) not null,
     completed_at timestamp null,
     constraint fk_purchase_orders_created_by foreign key (created_by_id) references app_users (id)
 );

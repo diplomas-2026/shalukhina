@@ -38,6 +38,9 @@ public class PurchaseOrder extends BaseEntity {
     @JoinColumn(name = "created_by_id", nullable = false)
     private SystemUser createdBy;
 
+    @Column(name = "delivery_location", nullable = false, length = 255)
+    private String deliveryLocation;
+
     @Column
     private Instant completedAt;
 

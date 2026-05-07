@@ -36,12 +36,16 @@ public class PurchaseOrderService {
     public PurchaseOrder create(CreatePurchaseOrderCommand command) {
         SystemUser creator = userRepository.findById(command.createdById())
                 .orElseThrow(() -> new DomainNotFoundException("User not found: " + command.createdById()));
+        if (command.deliveryLocation() == null || command.deliveryLocation().isBlank()) {
+            throw new IllegalArgumentException("Delivery location is required");
+        }
 
         PurchaseOrder order = new PurchaseOrder();
         order.setOrderNumber(generateOrderNumber());
         order.setStatus(PurchaseOrderStatus.DRAFT);
         order.setComment(command.comment());
         order.setCreatedBy(creator);
+        order.setDeliveryLocation(command.deliveryLocation().trim());
 
         List<PurchaseOrderItem> items = new ArrayList<>();
         for (CreatePurchaseOrderItemCommand itemCommand : command.items()) {
@@ -66,10 +70,10 @@ public class PurchaseOrderService {
                 .orElseThrow(() -> new DomainNotFoundException("User not found: " + actorId));
 
         PurchaseOrderStatus previousStatus = order.getStatus();
-        order.setStatus(command.status());
         if (command.status() == PurchaseOrderStatus.COMPLETED && previousStatus != PurchaseOrderStatus.COMPLETED) {
             completeOrder(order, actor, command.note());
         }
+        order.setStatus(command.status());
         if (command.status() == PurchaseOrderStatus.COMPLETED) {
             order.setCompletedAt(Instant.now());
         }
@@ -101,6 +105,7 @@ public class PurchaseOrderService {
 
     public record CreatePurchaseOrderCommand(
             Long createdById,
+            String deliveryLocation,
             String comment,
             List<CreatePurchaseOrderItemCommand> items
     ) {

@@ -29,7 +29,17 @@ async function request(path, options = {}) {
   });
 
   if (!response.ok) {
-    const error = new Error(await response.text() || `HTTP ${response.status}`);
+    const responseText = await response.text();
+    let message = responseText || `HTTP ${response.status}`;
+    try {
+      const parsed = JSON.parse(responseText);
+      if (parsed?.message) {
+        message = parsed.message;
+      }
+    } catch {
+      // keep plain text body
+    }
+    const error = new Error(message);
     error.status = response.status;
     throw error;
   }
@@ -62,6 +72,8 @@ export const api = {
   getPurchases: () => request('/api/purchases'),
   createPurchase: (body) => request('/api/purchases', { method: 'POST', body: JSON.stringify(body) }),
   changePurchaseStatus: (id, body) => request(`/api/purchases/${id}/status`, { method: 'POST', body: JSON.stringify(body) }),
+  getWarehouses: () => request('/api/warehouses'),
+  createWarehouse: (body) => request('/api/warehouses', { method: 'POST', body: JSON.stringify(body) }),
   getUsers: () => request('/api/users'),
   getDepartments: () => request('/api/departments'),
   getCategories: () => request('/api/categories'),

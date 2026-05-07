@@ -16,6 +16,7 @@ export function RequestDetailsPage({
   currentUser,
   onBack,
   onEdit,
+  onCreatePurchase,
   onChangeStatus,
   statusChangingRequestId,
 }) {
@@ -25,6 +26,7 @@ export function RequestDetailsPage({
 
   const canManage = currentUser?.role === 'ADMIN' || currentUser?.role === 'RESPONSIBLE';
   const isStatusChanging = statusChangingRequestId === request.id;
+  const canCreatePurchase = canManage && request.status === 'PURCHASE_WAIT' && typeof onCreatePurchase === 'function';
 
   const stockLines = useMemo(
     () =>
@@ -164,6 +166,11 @@ export function RequestDetailsPage({
               <Button variant="outlined" onClick={() => changeStatus('PURCHASE_WAIT')} disabled={isStatusChanging}>
                 Отправить на закупку
               </Button>
+              {canCreatePurchase ? (
+                <Button variant="outlined" onClick={() => onCreatePurchase(request)} disabled={isStatusChanging}>
+                  Создать закупку по заявке
+                </Button>
+              ) : null}
               <Button variant="outlined" color="error" onClick={() => changeStatus('REJECTED')} disabled={isStatusChanging}>
                 Отклонить
               </Button>
