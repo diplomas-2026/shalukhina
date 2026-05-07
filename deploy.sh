@@ -20,6 +20,7 @@ cd ..
 
 echo "Build web..."
 cd "$WEB_DIR"
+npm ci
 npm run build
 cd ..
 
