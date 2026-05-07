@@ -3,7 +3,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: tukhtarov-api
+    container_name: shalukhina-api
     restart: unless-stopped
     depends_on:
       postgres:
@@ -11,9 +11,9 @@ services:
     ports:
       - "8080:8080"
     environment:
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/tukhtarov
-      SPRING_DATASOURCE_USERNAME: tukhtarov
-      SPRING_DATASOURCE_PASSWORD: tukhtarov
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/shalukhina
+      SPRING_DATASOURCE_USERNAME: shalukhina
+      SPRING_DATASOURCE_PASSWORD: shalukhina
       SPRING_JPA_HIBERNATE_DDL_AUTO: update
       SERVER_PORT: 8080
 
