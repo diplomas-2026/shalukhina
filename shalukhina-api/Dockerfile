@@ -2,7 +2,7 @@ FROM eclipse-temurin:17-jre
 
 WORKDIR /app
 
-COPY release/app.jar /app/app.jar
+COPY release/shalukhina-api-0.0.1-SNAPSHOT.jar /app/app.jar
 
 EXPOSE 8080
 
