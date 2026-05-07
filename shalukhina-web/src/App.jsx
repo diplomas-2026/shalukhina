@@ -203,10 +203,6 @@ export default function App() {
     () => (isEmployee ? employeeRequests : state.dashboard.recentRequests),
     [employeeRequests, isEmployee, state.dashboard.recentRequests],
   );
-  const visibleCriticalItems = useMemo(
-    () => (isEmployee ? [] : state.dashboard.criticalItems),
-    [isEmployee, state.dashboard.criticalItems],
-  );
 
   async function loadSnapshot(includeUsers) {
     const requests = await api.getRequests();
@@ -602,9 +598,6 @@ export default function App() {
                             <Button fullWidth variant="outlined" onClick={() => setSection('requests')}>
                               Проверить заявки
                             </Button>
-                            <Button fullWidth variant="outlined" onClick={() => setSection('inventory')}>
-                              Посмотреть остатки
-                            </Button>
                           </Stack>
                         </Paper>
                       </Grid>
@@ -627,7 +620,7 @@ export default function App() {
                   </Grid>
 
                   <Grid container spacing={2.5}>
-                    <Grid item xs={12} lg={7}>
+                    <Grid item xs={12}>
                       <Paper elevation={0} sx={panelSx}>
                         <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
                           <Box>
@@ -666,36 +659,6 @@ export default function App() {
                             </TableBody>
                           </Table>
                         </TableContainer>
-                      </Paper>
-                    </Grid>
-                    <Grid item xs={12} lg={5}>
-                      <Paper elevation={0} sx={panelSx}>
-                        <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
-                          <Box>
-                            <Typography variant="h6">Что требует внимания</Typography>
-                            <Typography variant="body2" color="text.secondary">
-                              Сначала проверьте эти позиции.
-                            </Typography>
-                          </Box>
-                        </Stack>
-                        <Stack spacing={1.5}>
-                          {state.dashboard.criticalItems.map((item) => {
-                            const ratio = Math.max(0, Math.min(100, (Number(item.currentQuantity) / Math.max(Number(item.minQuantity), 1)) * 100));
-                            return (
-                              <Box key={item.id}>
-                                <Stack direction="row" justifyContent="space-between" sx={{ mb: 0.5 }}>
-                                  <Typography fontWeight={600}>{item.name}</Typography>
-                                  <Typography color="text.secondary">
-                                    {formatNumber(item.currentQuantity)} / {formatNumber(item.minQuantity)} {item.unit}
-                                  </Typography>
-                                </Stack>
-                                <Box sx={{ height: 10, borderRadius: 1, background: '#e2e8f0', overflow: 'hidden' }}>
-                                  <Box sx={{ width: `${ratio}%`, height: '100%', background: ratio < 70 ? '#f59e0b' : '#0f766e' }} />
-                                </Box>
-                              </Box>
-                            );
-                          })}
-                        </Stack>
                       </Paper>
                     </Grid>
                   </Grid>
