@@ -59,4 +59,8 @@ public class SupplyRequest extends BaseEntity {
     @OneToMany(mappedBy = "request", fetch = jakarta.persistence.FetchType.LAZY, cascade = jakarta.persistence.CascadeType.ALL, orphanRemoval = true)
     @JsonIgnoreProperties("request")
     private List<SupplyRequestItem> items = new ArrayList<>();
+
+    @OneToMany(mappedBy = "request", fetch = jakarta.persistence.FetchType.LAZY, cascade = jakarta.persistence.CascadeType.ALL, orphanRemoval = true)
+    @JsonIgnoreProperties("request")
+    private List<RequestStatusHistory> statusHistory = new ArrayList<>();
 }

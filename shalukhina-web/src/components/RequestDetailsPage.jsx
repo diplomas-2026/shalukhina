@@ -5,6 +5,12 @@ import EditIcon from '@mui/icons-material/Edit';
 import { StatusChip } from './StatusChip';
 import { RequestChatPanel } from './RequestChatPanel';
 
+const formatDateTime = (value) =>
+  new Intl.DateTimeFormat('ru-RU', {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  }).format(new Date(value));
+
 export function RequestDetailsPage({ request, currentUser, onBack, onEdit }) {
   if (!request) {
     return null;
@@ -31,8 +37,8 @@ export function RequestDetailsPage({ request, currentUser, onBack, onEdit }) {
         </Stack>
       </Stack>
 
-      <Stack direction={{ xs: 'column', md: 'row' }} spacing={2.5} alignItems="stretch">
-        <Paper elevation={0} sx={{ flex: 1, p: 2.5, borderRadius: 2, border: '1px solid rgba(15, 23, 42, 0.08)' }}>
+      <Stack spacing={2.5}>
+        <Paper elevation={0} sx={{ p: 2.5, borderRadius: 2, border: '1px solid rgba(15, 23, 42, 0.08)' }}>
           <Stack spacing={2}>
             <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
               <StatusChip value={request.status} />
@@ -65,35 +71,62 @@ export function RequestDetailsPage({ request, currentUser, onBack, onEdit }) {
                 </Typography>
               </Box>
             ) : null}
-            <Divider />
-            <Box>
-              <Typography variant="h6" sx={{ mb: 1.5 }}>
-                Состав заявки
-              </Typography>
-              <Stack spacing={1.25}>
-                {request.items.map((line) => (
-                  <Paper key={line.id} variant="outlined" sx={{ p: 1.5, borderRadius: 1.5 }}>
-                    <Stack spacing={0.5}>
-                      <Typography fontWeight={700}>{line.item?.name}</Typography>
-                      <Typography variant="body2" color="text.secondary">
-                        {line.quantityRequested} {line.item?.unit} · выдано {line.quantityIssued}
-                      </Typography>
-                      {line.note ? (
-                        <Typography variant="body2" color="text.secondary">
-                          {line.note}
-                        </Typography>
-                      ) : null}
-                    </Stack>
-                  </Paper>
-                ))}
-              </Stack>
-            </Box>
           </Stack>
         </Paper>
 
-        <Box sx={{ width: { xs: '100%', md: 500 }, minWidth: { md: 500 } }}>
-          <RequestChatPanel request={request} currentUser={currentUser} />
-        </Box>
+        <Paper elevation={0} sx={{ p: 2.5, borderRadius: 2, border: '1px solid rgba(15, 23, 42, 0.08)' }}>
+          <Typography variant="h6" sx={{ mb: 1.5 }}>
+            Состав заявки
+          </Typography>
+          <Stack spacing={1.25}>
+            {request.items.map((line) => (
+              <Paper key={line.id} variant="outlined" sx={{ p: 1.5, borderRadius: 1.5 }}>
+                <Stack spacing={0.5}>
+                  <Typography fontWeight={700}>{line.item?.name}</Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    {line.quantityRequested} {line.item?.unit} · выдано {line.quantityIssued}
+                  </Typography>
+                  {line.note ? (
+                    <Typography variant="body2" color="text.secondary">
+                      {line.note}
+                    </Typography>
+                  ) : null}
+                </Stack>
+              </Paper>
+            ))}
+          </Stack>
+        </Paper>
+
+        <Paper elevation={0} sx={{ p: 2.5, borderRadius: 2, border: '1px solid rgba(15, 23, 42, 0.08)' }}>
+          <Typography variant="h6" sx={{ mb: 1.5 }}>
+            История изменений статуса
+          </Typography>
+          <Stack spacing={1.25}>
+            {(request.statusHistory || []).slice().sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt)).map((entry) => (
+              <Paper key={entry.id} variant="outlined" sx={{ p: 1.5, borderRadius: 1.5 }}>
+                <Stack spacing={0.75}>
+                  <Stack direction="row" spacing={1} justifyContent="space-between" alignItems="center">
+                    <StatusChip value={entry.status} />
+                    <Typography variant="body2" color="text.secondary">
+                      {formatDateTime(entry.createdAt)}
+                    </Typography>
+                  </Stack>
+                  <Typography fontWeight={700}>{entry.actor?.fullName || 'Система'}</Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    {entry.note || 'Статус изменен'}
+                  </Typography>
+                </Stack>
+              </Paper>
+            ))}
+            {!request.statusHistory?.length ? (
+              <Typography variant="body2" color="text.secondary">
+                История статусов пока пустая.
+              </Typography>
+            ) : null}
+          </Stack>
+        </Paper>
+
+        <RequestChatPanel request={request} currentUser={currentUser} />
       </Stack>
     </Stack>
   );

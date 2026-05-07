@@ -591,21 +591,6 @@ export default function App() {
                   </Stack>
                 </Stack>
               </Grid>
-              <Grid item xs={12} md={4}>
-                <Paper elevation={0} sx={mutedPanelSx}>
-                  <Typography variant="subtitle2" color="text.secondary">
-                    Что сделать сейчас
-                  </Typography>
-                  <Stack spacing={1.25} sx={{ mt: 1.5 }}>
-                    <Button fullWidth variant="contained" startIcon={<AddIcon />} onClick={openRequestCreatePage}>
-                      Создать заявку
-                    </Button>
-                    <Button fullWidth variant="outlined" onClick={() => setSection('requests')}>
-                      Проверить заявки
-                    </Button>
-                  </Stack>
-                </Paper>
-              </Grid>
             </Grid>
           </Paper>
 
@@ -650,7 +635,7 @@ export default function App() {
                       </TableRow>
                     </TableHead>
                     <TableBody>
-                      {state.dashboard.recentRequests.map((request) => (
+                      {visibleRecentRequests.map((request) => (
                         <TableRow key={request.id} hover>
                           <TableCell>
                             <Button onClick={() => openRequestDetailsPage(request.id)}>{request.requestNumber}</Button>

@@ -3,6 +3,7 @@ package com.github.danbel.shalukhinaapi.service;
 import com.github.danbel.shalukhinaapi.domain.Department;
 import com.github.danbel.shalukhinaapi.domain.RequestPriority;
 import com.github.danbel.shalukhinaapi.domain.RequestStatus;
+import com.github.danbel.shalukhinaapi.domain.RequestStatusHistory;
 import com.github.danbel.shalukhinaapi.domain.StockMovement;
 import com.github.danbel.shalukhinaapi.domain.StockMovementType;
 import com.github.danbel.shalukhinaapi.domain.SupplyItem;
@@ -10,6 +11,7 @@ import com.github.danbel.shalukhinaapi.domain.SupplyRequest;
 import com.github.danbel.shalukhinaapi.domain.SupplyRequestItem;
 import com.github.danbel.shalukhinaapi.domain.SystemUser;
 import com.github.danbel.shalukhinaapi.repo.DepartmentRepository;
+import com.github.danbel.shalukhinaapi.repo.RequestStatusHistoryRepository;
 import com.github.danbel.shalukhinaapi.repo.StockMovementRepository;
 import com.github.danbel.shalukhinaapi.repo.SupplyItemRepository;
 import com.github.danbel.shalukhinaapi.repo.SupplyRequestRepository;
@@ -35,6 +37,7 @@ public class RequestService {
     private final SystemUserRepository userRepository;
     private final DepartmentRepository departmentRepository;
     private final StockMovementRepository movementRepository;
+    private final RequestStatusHistoryRepository statusHistoryRepository;
 
     public List<SupplyRequest> listRequests() {
         return requestRepository.findAllByOrderByCreatedAtDesc();
@@ -74,7 +77,9 @@ public class RequestService {
         }
 
         request.setItems(items);
-        return requestRepository.save(request);
+        SupplyRequest savedRequest = requestRepository.save(request);
+        addStatusHistory(savedRequest, requester, RequestStatus.SUBMITTED, "Заявка создана");
+        return savedRequest;
     }
 
     @Transactional
@@ -128,7 +133,9 @@ public class RequestService {
         if (comment != null && !comment.isBlank()) {
             request.setComment(comment);
         }
-        return requestRepository.save(request);
+        SupplyRequest savedRequest = requestRepository.save(request);
+        addStatusHistory(savedRequest, approver, RequestStatus.APPROVED, comment == null || comment.isBlank() ? "Заявка согласована" : comment);
+        return savedRequest;
     }
 
     @Transactional
@@ -141,7 +148,9 @@ public class RequestService {
         request.setApprovedBy(approver);
         request.setApprovedAt(Instant.now());
         request.setRejectionReason(reason);
-        return requestRepository.save(request);
+        SupplyRequest savedRequest = requestRepository.save(request);
+        addStatusHistory(savedRequest, approver, RequestStatus.REJECTED, reason == null || reason.isBlank() ? "Заявка отклонена" : reason);
+        return savedRequest;
     }
 
     @Transactional
@@ -176,7 +185,19 @@ public class RequestService {
         }
 
         request.setStatus(RequestStatus.ISSUED);
-        return requestRepository.save(request);
+        SupplyRequest savedRequest = requestRepository.save(request);
+        addStatusHistory(savedRequest, actor, RequestStatus.ISSUED, document == null || document.isBlank() ? "Товары выданы" : document);
+        return savedRequest;
+    }
+
+    private void addStatusHistory(SupplyRequest request, SystemUser actor, RequestStatus status, String note) {
+        RequestStatusHistory history = new RequestStatusHistory();
+        history.setRequest(request);
+        history.setActor(actor);
+        history.setStatus(status);
+        history.setNote(note);
+        statusHistoryRepository.save(history);
+        request.getStatusHistory().add(history);
     }
 
     private String generateRequestNumber() {
