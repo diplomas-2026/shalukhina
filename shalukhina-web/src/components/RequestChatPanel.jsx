@@ -37,7 +37,7 @@ export function RequestChatPanel({ request, currentUser }) {
   const endRef = useRef(null);
   const lastSeenRef = useRef(null);
 
-  const canWrite = useMemo(() => {
+  const canAccess = useMemo(() => {
     if (!request || !currentUser) {
       return false;
     }
@@ -45,6 +45,7 @@ export function RequestChatPanel({ request, currentUser }) {
       || currentUser.role === 'RESPONSIBLE'
       || request.requester?.id === currentUser.id;
   }, [currentUser, request]);
+  const canWrite = canAccess;
 
   const requestId = request?.id;
 
@@ -65,11 +66,7 @@ export function RequestChatPanel({ request, currentUser }) {
       lastSeenRef.current = normalizedLast;
       setError('');
     } catch (exception) {
-      if (exception?.status === 403) {
-        setError('Доступ к чату этой заявки закрыт.');
-      } else {
-        setError('Не удалось загрузить чат.');
-      }
+      setError('Не удалось загрузить чат.');
     } finally {
       setLoading(false);
     }
@@ -86,9 +83,7 @@ export function RequestChatPanel({ request, currentUser }) {
         await loadMessages();
       }
     } catch (exception) {
-      if (exception?.status === 403) {
-        setError('Доступ к чату этой заявки закрыт.');
-      }
+      void exception;
     }
   };
 
@@ -134,9 +129,7 @@ export function RequestChatPanel({ request, currentUser }) {
       setText('');
       await loadMessages();
     } catch (exception) {
-      if (exception?.status === 403) {
-        setError('У вас нет доступа к чату этой заявки.');
-      } else if (exception?.status === 400) {
+      if (exception?.status === 400) {
         setError('Сообщение не может быть пустым.');
       } else {
         setError('Не удалось отправить сообщение.');
@@ -145,6 +138,10 @@ export function RequestChatPanel({ request, currentUser }) {
       setSending(false);
     }
   };
+
+  if (!canAccess) {
+    return null;
+  }
 
   return (
     <Paper elevation={0} sx={{ height: '100%', minHeight: 640, p: 2.5, borderRadius: 2, border: '1px solid rgba(15, 23, 42, 0.08)', display: 'flex', flexDirection: 'column' }}>
