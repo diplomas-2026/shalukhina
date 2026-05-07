@@ -1,4 +1,4 @@
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://shalukhina.danbel.ru';
+const API_BASE_URL = globalThis.__APP_CONFIG__?.API_BASE_URL || window.location.origin || 'https://shalukhina.danbel.ru';
 const TOKEN_KEY = 'shalukhina-auth-token';
 
 function getToken() {

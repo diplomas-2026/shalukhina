@@ -1311,16 +1311,16 @@ export default function App() {
                       <Typography variant="caption" color="text.secondary" sx={{ mb: 0.5 }}>
                         Склад
                       </Typography>
-                      <Select
-                        value={itemForm.storageLocation}
-                        onChange={(event) => setItemForm((current) => ({ ...current, storageLocation: event.target.value }))}
-                        displayEmpty
-                      >
+                        <Select
+                          value={itemForm.storageLocation}
+                          onChange={(event) => setItemForm((current) => ({ ...current, storageLocation: event.target.value }))}
+                          displayEmpty
+                        >
                         <MenuItem value="">
                           <em>Выберите склад</em>
                         </MenuItem>
                         {warehouses.map((warehouse) => (
-                          <MenuItem key={warehouse.id} value={warehouse.id}>
+                          <MenuItem key={warehouse.id} value={String(warehouse.id)}>
                             {warehouse.name}
                           </MenuItem>
                         ))}

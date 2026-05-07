@@ -39,6 +39,6 @@ ssh $SERVER '
 
 echo "Deploy frontend..."
 ssh $SERVER "mkdir -p /var/www/projects/$DOMAIN"
-scp -r "$WEB_DIR/dist/"* "$SERVER:/var/www/projects/$DOMAIN/"
+scp -r "$WEB_DIR/build/"* "$SERVER:/var/www/projects/$DOMAIN/"
 
 echo "Done"
