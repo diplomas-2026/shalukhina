@@ -57,6 +57,13 @@ public class RequestController {
         return requestService.updateRequest(id, currentUser.getId(), command);
     }
 
+    @PostMapping("/{id}/status")
+    @PreAuthorize("hasAnyRole('ADMIN','RESPONSIBLE')")
+    public SupplyRequest changeStatus(@PathVariable Long id, @RequestBody RequestService.ChangeStatusCommand command, HttpServletRequest request) {
+        SystemUser currentUser = currentUserResolver.requireUser(request);
+        return requestService.changeStatus(id, currentUser.getId(), command);
+    }
+
     @PostMapping("/{id}/approve")
     @PreAuthorize("hasAnyRole('ADMIN','RESPONSIBLE')")
     public SupplyRequest approve(@PathVariable Long id, @RequestBody ApprovalCommand command, HttpServletRequest request) {

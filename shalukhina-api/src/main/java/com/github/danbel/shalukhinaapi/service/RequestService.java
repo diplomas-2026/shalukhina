@@ -122,35 +122,52 @@ public class RequestService {
     }
 
     @Transactional
-    public SupplyRequest approve(Long requestId, Long approverId, String comment) {
+    public SupplyRequest changeStatus(Long requestId, Long actorId, ChangeStatusCommand command) {
         SupplyRequest request = getRequest(requestId);
-        SystemUser approver = userRepository.findById(approverId)
-                .orElseThrow(() -> new DomainNotFoundException("User not found: " + approverId));
+        SystemUser actor = userRepository.findById(actorId)
+                .orElseThrow(() -> new DomainNotFoundException("User not found: " + actorId));
 
-        request.setStatus(RequestStatus.APPROVED);
-        request.setApprovedBy(approver);
-        request.setApprovedAt(Instant.now());
-        if (comment != null && !comment.isBlank()) {
-            request.setComment(comment);
+        if (command.status() == null) {
+            throw new IllegalArgumentException("Status is required");
         }
+
+        if (!isAllowedTransition(request.getStatus(), command.status())) {
+            throw new IllegalStateException("Invalid status transition");
+        }
+
+        request.setStatus(command.status());
+        if (command.status() == RequestStatus.APPROVED) {
+            request.setApprovedBy(actor);
+            request.setApprovedAt(Instant.now());
+            request.setRejectionReason(null);
+        } else if (command.status() == RequestStatus.REJECTED) {
+            request.setApprovedBy(actor);
+            request.setApprovedAt(Instant.now());
+            request.setRejectionReason(command.note());
+        } else if (command.status() == RequestStatus.ISSUED) {
+            request.setApprovedBy(actor);
+            request.setApprovedAt(Instant.now());
+        }
+
         SupplyRequest savedRequest = requestRepository.save(request);
-        addStatusHistory(savedRequest, approver, RequestStatus.APPROVED, comment == null || comment.isBlank() ? "Заявка согласована" : comment);
+        addStatusHistory(savedRequest, actor, command.status(), command.note());
         return savedRequest;
     }
 
     @Transactional
-    public SupplyRequest reject(Long requestId, Long approverId, String reason) {
-        SupplyRequest request = getRequest(requestId);
-        SystemUser approver = userRepository.findById(approverId)
-                .orElseThrow(() -> new DomainNotFoundException("User not found: " + approverId));
+    public SupplyRequest approve(Long requestId, Long approverId, String comment) {
+        if (comment != null && !comment.isBlank()) {
+            return changeStatus(requestId, approverId, new ChangeStatusCommand(RequestStatus.APPROVED, comment));
+        }
+        return changeStatus(requestId, approverId, new ChangeStatusCommand(RequestStatus.APPROVED, "Заявка согласована"));
+    }
 
-        request.setStatus(RequestStatus.REJECTED);
-        request.setApprovedBy(approver);
-        request.setApprovedAt(Instant.now());
-        request.setRejectionReason(reason);
-        SupplyRequest savedRequest = requestRepository.save(request);
-        addStatusHistory(savedRequest, approver, RequestStatus.REJECTED, reason == null || reason.isBlank() ? "Заявка отклонена" : reason);
-        return savedRequest;
+    @Transactional
+    public SupplyRequest reject(Long requestId, Long approverId, String reason) {
+        return changeStatus(requestId, approverId, new ChangeStatusCommand(
+                RequestStatus.REJECTED,
+                reason == null || reason.isBlank() ? "Заявка отклонена" : reason
+        ));
     }
 
     @Transactional
@@ -188,6 +205,17 @@ public class RequestService {
         SupplyRequest savedRequest = requestRepository.save(request);
         addStatusHistory(savedRequest, actor, RequestStatus.ISSUED, document == null || document.isBlank() ? "Товары выданы" : document);
         return savedRequest;
+    }
+
+    private boolean isAllowedTransition(RequestStatus currentStatus, RequestStatus nextStatus) {
+        return switch (currentStatus) {
+            case SUBMITTED -> nextStatus == RequestStatus.APPROVED
+                    || nextStatus == RequestStatus.REJECTED
+                    || nextStatus == RequestStatus.CANCELLED;
+            case APPROVED -> nextStatus == RequestStatus.ISSUED
+                    || nextStatus == RequestStatus.CANCELLED;
+            default -> false;
+        };
     }
 
     private void addStatusHistory(SupplyRequest request, SystemUser actor, RequestStatus status, String note) {
@@ -228,6 +256,12 @@ public class RequestService {
             RequestPriority priority,
             String comment,
             List<CreateRequestItemCommand> items
+    ) {
+    }
+
+    public record ChangeStatusCommand(
+            RequestStatus status,
+            String note
     ) {
     }
 }

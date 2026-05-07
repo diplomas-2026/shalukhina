@@ -52,6 +52,7 @@ export const api = {
   sendRequestChatMessage: (id, body) => request(`/api/requests/${id}/chat`, { method: 'POST', body: JSON.stringify(body) }),
   createRequest: (body) => request('/api/requests', { method: 'POST', body: JSON.stringify(body) }),
   updateRequest: (id, body) => request(`/api/requests/${id}`, { method: 'PUT', body: JSON.stringify(body) }),
+  changeRequestStatus: (id, body) => request(`/api/requests/${id}/status`, { method: 'POST', body: JSON.stringify(body) }),
   approveRequest: (id, body) => request(`/api/requests/${id}/approve`, { method: 'POST', body: JSON.stringify(body) }),
   rejectRequest: (id, body) => request(`/api/requests/${id}/reject`, { method: 'POST', body: JSON.stringify(body) }),
   issueRequest: (id, body) => request(`/api/requests/${id}/issue`, { method: 'POST', body: JSON.stringify(body) }),

@@ -44,6 +44,7 @@ import { ReceiveDialog } from './components/ReceiveDialog';
 import { RequestFormPage } from './components/RequestFormPage';
 import { RequestDetailsPage } from './components/RequestDetailsPage';
 import { AppShell } from './components/AppShell';
+import { RequestKanbanBoard } from './components/RequestKanbanBoard';
 
 const sectionTitles = {
   dashboard: 'Главная',
@@ -159,6 +160,7 @@ export default function App() {
   );
   const isEmployee = activeUser?.role === 'EMPLOYEE';
   const canManage = activeUser?.role === 'ADMIN' || activeUser?.role === 'RESPONSIBLE';
+  const useKanbanRequests = activeUser?.role === 'RESPONSIBLE';
   const visibleNavItems = useMemo(
     () => navItems.filter((item) => {
       if (isEmployee) {
@@ -379,6 +381,22 @@ export default function App() {
     await runApiAction(() => api.issueRequest(requestId, body), 'Товары выданы');
   };
 
+  const moveRequestStatus = async (requestId, nextStatus) => {
+    if (nextStatus === 'ISSUED') {
+      await issueRequest(requestId);
+      return;
+    }
+
+    const noteByStatus = {
+      APPROVED: 'Согласовано через канбан',
+      REJECTED: 'Отклонено через канбан',
+    };
+    await runApiAction(
+      () => api.changeRequestStatus(requestId, { status: nextStatus, note: noteByStatus[nextStatus] || 'Изменено через канбан' }),
+      'Статус заявки изменен',
+    );
+  };
+
   const receiveItem = async (payload) => {
     await runApiAction(() => api.receiveItem(payload.itemId, payload), 'Поступление сохранено');
   };
@@ -411,6 +429,14 @@ export default function App() {
       return matchesStatus && matchesSearch;
     });
   }, [visibleRequests, statusFilter, search]);
+
+  const kanbanRequests = useMemo(() => {
+    const needle = search.toLowerCase();
+    return visibleRequests.filter((request) => {
+      const haystack = `${request.requestNumber} ${request.requester?.fullName} ${request.department?.name} ${request.comment}`.toLowerCase();
+      return haystack.includes(needle);
+    });
+  }, [visibleRequests, search]);
 
   if (authLoading || loading) {
     return (
@@ -672,66 +698,82 @@ export default function App() {
             </Grid>
           </Grid>
           <Paper elevation={0} sx={panelSx}>
-            <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} sx={{ mb: 2 }}>
+            <Stack spacing={2}>
               <TextField fullWidth label="Поиск по заявке, ФИО или кабинету" value={search} onChange={(event) => setSearch(event.target.value)} />
-              <FormControl sx={{ minWidth: 220 }}>
-                <Select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
-                  <MenuItem value="ALL">Все заявки</MenuItem>
-                  <MenuItem value="SUBMITTED">Новые</MenuItem>
-                  <MenuItem value="APPROVED">Согласованные</MenuItem>
-                  <MenuItem value="REJECTED">Отклоненные</MenuItem>
-                  <MenuItem value="ISSUED">Выданные</MenuItem>
-                </Select>
-              </FormControl>
+              {useKanbanRequests ? (
+                <RequestKanbanBoard
+                  requests={kanbanRequests}
+                  onMoveRequest={moveRequestStatus}
+                  onOpenRequest={openRequestDetailsPage}
+                  allowedTargets={{
+                    SUBMITTED: ['APPROVED', 'REJECTED'],
+                    APPROVED: ['ISSUED'],
+                    REJECTED: [],
+                    ISSUED: [],
+                  }}
+                />
+              ) : (
+                <>
+                  <FormControl sx={{ minWidth: 220 }}>
+                    <Select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
+                      <MenuItem value="ALL">Все заявки</MenuItem>
+                      <MenuItem value="SUBMITTED">Новые</MenuItem>
+                      <MenuItem value="APPROVED">Согласованные</MenuItem>
+                      <MenuItem value="REJECTED">Отклоненные</MenuItem>
+                      <MenuItem value="ISSUED">Выданные</MenuItem>
+                    </Select>
+                  </FormControl>
+                  <TableContainer>
+                    <Table size="small">
+                      <TableHead>
+                        <TableRow>
+                          <TableCell>Номер</TableCell>
+                          <TableCell>Кто подал</TableCell>
+                          <TableCell>Кабинет / отдел</TableCell>
+                          <TableCell>Статус</TableCell>
+                          <TableCell>Приоритет</TableCell>
+                          <TableCell>Позиций</TableCell>
+                          <TableCell align="right">Действия</TableCell>
+                        </TableRow>
+                      </TableHead>
+                      <TableBody>
+                        {filteredRequests.map((request) => (
+                          <TableRow key={request.id} hover>
+                            <TableCell>
+                              <Button onClick={() => openRequestDetailsPage(request.id)}>{request.requestNumber}</Button>
+                            </TableCell>
+                            <TableCell>{request.requester?.fullName}</TableCell>
+                            <TableCell>{request.department?.name}</TableCell>
+                            <TableCell><StatusChip value={request.status} /></TableCell>
+                            <TableCell><StatusChip value={request.priority} /></TableCell>
+                            <TableCell>{request.items.length} поз.</TableCell>
+                            <TableCell align="right">
+                              <Stack direction="row" spacing={1} justifyContent="flex-end">
+                                {canManage && request.status === 'SUBMITTED' && (
+                                  <>
+                                    <Button size="small" variant="outlined" onClick={() => approveRequest(request.id)}>
+                                      Согласовать
+                                    </Button>
+                                    <Button size="small" color="error" variant="outlined" onClick={() => rejectRequest(request.id)}>
+                                      Отклонить
+                                    </Button>
+                                  </>
+                                )}
+                                {canManage && request.status === 'APPROVED' && (
+                                  <Button size="small" variant="contained" onClick={() => issueRequest(request.id)}>
+                                    Выдать
+                                  </Button>
+                                )}
+                              </Stack>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </TableContainer>
+                </>
+              )}
             </Stack>
-            <TableContainer>
-              <Table size="small">
-                <TableHead>
-                  <TableRow>
-                    <TableCell>Номер</TableCell>
-                    <TableCell>Кто подал</TableCell>
-                    <TableCell>Кабинет / отдел</TableCell>
-                    <TableCell>Статус</TableCell>
-                    <TableCell>Приоритет</TableCell>
-                    <TableCell>Позиций</TableCell>
-                    <TableCell align="right">Действия</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {filteredRequests.map((request) => (
-                    <TableRow key={request.id} hover>
-                      <TableCell>
-                        <Button onClick={() => openRequestDetailsPage(request.id)}>{request.requestNumber}</Button>
-                      </TableCell>
-                      <TableCell>{request.requester?.fullName}</TableCell>
-                      <TableCell>{request.department?.name}</TableCell>
-                      <TableCell><StatusChip value={request.status} /></TableCell>
-                      <TableCell><StatusChip value={request.priority} /></TableCell>
-                      <TableCell>{request.items.length} поз.</TableCell>
-                      <TableCell align="right">
-                        <Stack direction="row" spacing={1} justifyContent="flex-end">
-                          {canManage && request.status === 'SUBMITTED' && (
-                            <>
-                              <Button size="small" variant="outlined" onClick={() => approveRequest(request.id)}>
-                                Согласовать
-                              </Button>
-                              <Button size="small" color="error" variant="outlined" onClick={() => rejectRequest(request.id)}>
-                                Отклонить
-                              </Button>
-                            </>
-                          )}
-                          {canManage && request.status === 'APPROVED' && (
-                            <Button size="small" variant="contained" onClick={() => issueRequest(request.id)}>
-                              Выдать
-                            </Button>
-                          )}
-                        </Stack>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </TableContainer>
           </Paper>
         </Stack>
       </Stack>
