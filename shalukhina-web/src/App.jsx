@@ -31,7 +31,6 @@ import WarehouseIcon from '@mui/icons-material/Warehouse';
 import AssessmentIcon from '@mui/icons-material/Assessment';
 import PeopleIcon from '@mui/icons-material/People';
 import AddIcon from '@mui/icons-material/Add';
-import RefreshIcon from '@mui/icons-material/Refresh';
 import SchoolIcon from '@mui/icons-material/School';
 import TaskAltIcon from '@mui/icons-material/TaskAlt';
 import LocalShippingIcon from '@mui/icons-material/LocalShipping';
@@ -552,9 +551,6 @@ export default function App() {
               </Typography>
             </Box>
             <Stack direction="row" spacing={1} alignItems="start">
-              <Button startIcon={<RefreshIcon />} variant="outlined" onClick={reloadApiSnapshot}>
-                Обновить
-              </Button>
               <Button startIcon={<AddIcon />} variant="contained" onClick={openRequestCreatePage}>
                 Создать заявку
               </Button>
