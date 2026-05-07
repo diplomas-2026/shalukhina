@@ -36,7 +36,8 @@ echo "Deploy backend on server..."
 ssh $SERVER '
   set -e
   cd /opt/shalukhina
-  git pull
+  git fetch origin main
+  git reset --hard origin/main
   cd /opt
   docker compose up shalukhina-api -d --build
 '
