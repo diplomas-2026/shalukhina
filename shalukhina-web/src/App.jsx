@@ -158,6 +158,7 @@ export default function App() {
     () => authUser || null,
     [authUser],
   );
+  const isAdmin = activeUser?.role === 'ADMIN';
   const isEmployee = activeUser?.role === 'EMPLOYEE';
   const canManage = activeUser?.role === 'ADMIN' || activeUser?.role === 'RESPONSIBLE';
   const useKanbanRequests = activeUser?.role === 'RESPONSIBLE';
@@ -166,9 +167,9 @@ export default function App() {
       if (isEmployee) {
         return item.key === 'dashboard' || item.key === 'requests';
       }
-      return item.key !== 'users' || canManage;
+      return item.key !== 'users' || isAdmin;
     }),
-    [canManage, isEmployee],
+    [isAdmin, isEmployee],
   );
   const selectedItem = state.items.find((item) => item.id === selectedItemId) || null;
   const employeeRequests = useMemo(
@@ -272,7 +273,7 @@ export default function App() {
         const me = await api.me();
         if (!alive) return;
         setAuthUser(me);
-        const snapshot = await loadSnapshot(me.role === 'ADMIN' || me.role === 'RESPONSIBLE');
+        const snapshot = await loadSnapshot(me.role === 'ADMIN');
         if (!alive) return;
         setState(normalizeApiState(snapshot));
         setError('');
@@ -296,7 +297,7 @@ export default function App() {
 
   async function reloadApiSnapshot() {
     try {
-      const snapshot = await loadSnapshot(canManage);
+      const snapshot = await loadSnapshot(isAdmin);
       setState(normalizeApiState(snapshot));
       setError('');
       setMessage('Данные обновлены');
@@ -949,7 +950,7 @@ export default function App() {
         </Stack>
       </Stack>
     );
-  } else if (canManage && section === 'users') {
+  } else if (isAdmin && section === 'users') {
     content = (
       <Stack spacing={3}>
         {error ? <Alert severity="error">{error}</Alert> : null}
