@@ -112,93 +112,118 @@ export function RequestFormPage({ mode, request, items, requester, departments, 
 
       {error ? <Alert severity="error">{error}</Alert> : null}
 
-      <Paper variant="outlined" sx={{ p: 2.5, borderRadius: 2 }}>
-        <Grid container spacing={2}>
-          <Grid item xs={12} md={6}>
-            <TextField fullWidth label="Заявитель" value={requester?.fullName || ''} disabled />
+      <Paper variant="outlined" sx={{ p: { xs: 2, md: 3 }, borderRadius: 2 }}>
+        <Stack spacing={2.5}>
+          <Box>
+            <Typography variant="h6">Основные данные</Typography>
+            <Typography variant="body2" color="text.secondary">
+              Укажите кабинет, срочность и краткое пояснение.
+            </Typography>
+          </Box>
+
+          <Grid container spacing={2}>
+            <Grid item xs={12} md={6}>
+              <TextField fullWidth label="Заявитель" value={requester?.fullName || ''} disabled />
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <FormControl fullWidth>
+                <Typography variant="caption" color="text.secondary" sx={{ mb: 0.5 }}>
+                  Кабинет / отдел
+                </Typography>
+                <Select value={departmentId} onChange={(event) => setDepartmentId(Number(event.target.value))}>
+                  {departments.map((department) => (
+                    <MenuItem key={department.id} value={department.id}>
+                      {department.name}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={12} md={4}>
+              <FormControl fullWidth>
+                <Typography variant="caption" color="text.secondary" sx={{ mb: 0.5 }}>
+                  Срочность
+                </Typography>
+                <Select value={priority} onChange={(event) => setPriority(event.target.value)}>
+                  <MenuItem value="LOW">Низкий</MenuItem>
+                  <MenuItem value="NORMAL">Нормальный</MenuItem>
+                  <MenuItem value="HIGH">Высокий</MenuItem>
+                  <MenuItem value="URGENT">Срочный</MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={12} md={8}>
+              <TextField
+                fullWidth
+                label="Краткое пояснение"
+                value={comment}
+                onChange={(event) => setComment(event.target.value)}
+                multiline
+                minRows={2}
+              />
+            </Grid>
           </Grid>
-          <Grid item xs={12} md={6}>
-            <FormControl fullWidth>
-              <Typography variant="caption" color="text.secondary" sx={{ mb: 0.5 }}>
-                Кабинет / отдел
-              </Typography>
-              <Select value={departmentId} onChange={(event) => setDepartmentId(Number(event.target.value))}>
-                {departments.map((department) => (
-                  <MenuItem key={department.id} value={department.id}>
-                    {department.name}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-          </Grid>
-          <Grid item xs={12} md={6}>
-            <FormControl fullWidth>
-              <Typography variant="caption" color="text.secondary" sx={{ mb: 0.5 }}>
-                Срочность
-              </Typography>
-              <Select value={priority} onChange={(event) => setPriority(event.target.value)}>
-                <MenuItem value="LOW">Низкий</MenuItem>
-                <MenuItem value="NORMAL">Нормальный</MenuItem>
-                <MenuItem value="HIGH">Высокий</MenuItem>
-                <MenuItem value="URGENT">Срочный</MenuItem>
-              </Select>
-            </FormControl>
-          </Grid>
-          <Grid item xs={12} md={6}>
-            <TextField
-              fullWidth
-              label="Краткое пояснение"
-              value={comment}
-              onChange={(event) => setComment(event.target.value)}
-            />
-          </Grid>
-        </Grid>
+        </Stack>
 
         <Divider sx={{ my: 3 }} />
 
-        <Stack spacing={2}>
-          <Stack direction="row" alignItems="center" justifyContent="space-between">
-            <Typography variant="subtitle1" fontWeight={700}>
-              Что нужно заказать
-            </Typography>
+        <Stack spacing={2.25}>
+          <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={2}>
+            <Box>
+              <Typography variant="h6">Позиции заявки</Typography>
+              <Typography variant="body2" color="text.secondary">
+                Добавьте все канцтовары, которые нужны в кабинете.
+              </Typography>
+            </Box>
             <Button startIcon={<AddIcon />} onClick={addLine}>
               Добавить позицию
             </Button>
           </Stack>
+
           {lines.map((line, index) => (
-            <Grid container spacing={2} key={index} alignItems="center">
-              <Grid item xs={12} md={5}>
-                <FormControl fullWidth>
-                  <Typography variant="caption" color="text.secondary" sx={{ mb: 0.5 }}>
-                    Товар
-                  </Typography>
-                  <Select value={line.itemId} onChange={(event) => updateLine(index, { itemId: Number(event.target.value) })}>
-                    {items.map((item) => (
-                      <MenuItem key={item.id} value={item.id}>
-                        {item.name} · {item.currentQuantity} {item.unit}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
+            <Paper key={index} variant="outlined" sx={{ p: 2, borderRadius: 2, position: 'relative' }}>
+              <IconButton
+                color="error"
+                onClick={() => removeLine(index)}
+                disabled={lines.length === 1}
+                sx={{ position: 'absolute', top: 8, right: 8 }}
+              >
+                <DeleteIcon />
+              </IconButton>
+              <Grid container spacing={2} sx={{ pr: 5 }}>
+                <Grid item xs={12} md={6}>
+                  <FormControl fullWidth>
+                    <Typography variant="caption" color="text.secondary" sx={{ mb: 0.5 }}>
+                      Товар
+                    </Typography>
+                    <Select value={line.itemId} onChange={(event) => updateLine(index, { itemId: Number(event.target.value) })}>
+                      {items.map((item) => (
+                        <MenuItem key={item.id} value={item.id}>
+                          {item.name} · {item.currentQuantity} {item.unit}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                </Grid>
+                <Grid item xs={12} sm={6} md={3}>
+                  <TextField
+                    fullWidth
+                    type="number"
+                    label="Количество"
+                    value={line.quantity}
+                    onChange={(event) => updateLine(index, { quantity: event.target.value })}
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6} md={3}>
+                  <TextField
+                    fullWidth
+                    label="Примечание"
+                    value={line.note}
+                    onChange={(event) => updateLine(index, { note: event.target.value })}
+                  />
+                </Grid>
               </Grid>
-              <Grid item xs={12} md={2.5}>
-                <TextField
-                  fullWidth
-                  type="number"
-                  label="Количество"
-                  value={line.quantity}
-                  onChange={(event) => updateLine(index, { quantity: event.target.value })}
-                />
-              </Grid>
-              <Grid item xs={12} md={3.5}>
-                <TextField fullWidth label="Примечание" value={line.note} onChange={(event) => updateLine(index, { note: event.target.value })} />
-              </Grid>
-              <Grid item xs={12} md={1}>
-                <IconButton color="error" onClick={() => removeLine(index)} disabled={lines.length === 1}>
-                  <DeleteIcon />
-                </IconButton>
-              </Grid>
-            </Grid>
+            </Paper>
           ))}
         </Stack>
       </Paper>
