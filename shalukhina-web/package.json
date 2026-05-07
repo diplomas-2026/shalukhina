@@ -3,7 +3,6 @@
   "private": true,
   "version": "0.0.1",
   "type": "module",
-  "homepage": ".",
   "scripts": {
     "dev": "react-scripts start",
     "build": "react-scripts build",
