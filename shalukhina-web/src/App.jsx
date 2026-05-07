@@ -25,7 +25,6 @@ import {
 import DashboardIcon from '@mui/icons-material/Dashboard';
 import AssignmentIcon from '@mui/icons-material/Assignment';
 import WarehouseIcon from '@mui/icons-material/Warehouse';
-import Inventory2Icon from '@mui/icons-material/Inventory2';
 import AssessmentIcon from '@mui/icons-material/Assessment';
 import PeopleIcon from '@mui/icons-material/People';
 import AddIcon from '@mui/icons-material/Add';
@@ -60,7 +59,6 @@ const navItems = [
   { key: 'dashboard', label: 'Главная', icon: <DashboardIcon /> },
   { key: 'requests', label: 'Заявки', icon: <AssignmentIcon /> },
   { key: 'inventory', label: 'Склад', icon: <WarehouseIcon /> },
-  { key: 'items', label: 'Товары', icon: <Inventory2Icon /> },
   { key: 'reports', label: 'Отчеты', icon: <AssessmentIcon /> },
   { key: 'users', label: 'Сотрудники', icon: <PeopleIcon /> },
 ];
