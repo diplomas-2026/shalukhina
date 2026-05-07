@@ -1,5 +1,6 @@
 package com.github.danbel.shalukhinaapi.web;
 
+import com.github.danbel.shalukhinaapi.auth.AuthException;
 import com.github.danbel.shalukhinaapi.service.DomainNotFoundException;
 import java.util.Map;
 import org.springframework.http.HttpStatus;
@@ -19,6 +20,12 @@ public class RestExceptionHandler {
     @ExceptionHandler(IllegalStateException.class)
     public ResponseEntity<Map<String, String>> handleBadRequest(IllegalStateException exception) {
         return ResponseEntity.badRequest()
+                .body(Map.of("message", exception.getMessage()));
+    }
+
+    @ExceptionHandler(AuthException.class)
+    public ResponseEntity<Map<String, String>> handleAuth(AuthException exception) {
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                 .body(Map.of("message", exception.getMessage()));
     }
 

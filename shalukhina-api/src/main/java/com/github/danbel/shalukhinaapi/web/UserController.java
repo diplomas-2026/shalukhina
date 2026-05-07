@@ -5,6 +5,7 @@ import com.github.danbel.shalukhinaapi.repo.SystemUserRepository;
 import com.github.danbel.shalukhinaapi.service.DomainNotFoundException;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -22,21 +23,25 @@ public class UserController {
     private final SystemUserRepository repository;
 
     @GetMapping
+    @PreAuthorize("hasRole('ADMIN')")
     public List<SystemUser> list() {
         return repository.findAll();
     }
 
     @GetMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
     public SystemUser get(@PathVariable Long id) {
         return repository.findById(id).orElseThrow(() -> new DomainNotFoundException("User not found: " + id));
     }
 
     @PostMapping
+    @PreAuthorize("hasRole('ADMIN')")
     public SystemUser create(@RequestBody SystemUser user) {
         return repository.save(user);
     }
 
     @PutMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
     public SystemUser update(@PathVariable Long id, @RequestBody SystemUser payload) {
         SystemUser user = get(id);
         user.setFullName(payload.getFullName());
@@ -50,6 +55,7 @@ public class UserController {
     }
 
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
     public void delete(@PathVariable Long id) {
         repository.deleteById(id);
     }

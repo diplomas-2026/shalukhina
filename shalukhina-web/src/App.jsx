@@ -39,7 +39,7 @@ import PeopleIcon from '@mui/icons-material/People';
 import AddIcon from '@mui/icons-material/Add';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import Inventory2Icon from '@mui/icons-material/Inventory2';
-import { api } from './lib/http';
+import { api, setToken } from './lib/http';
 import { StatCard } from './components/StatCard';
 import { StatusChip } from './components/StatusChip';
 import { RequestDialog } from './components/RequestDialog';
@@ -90,6 +90,23 @@ function buildDashboard(state) {
   };
 }
 
+function createEmptyState() {
+  const empty = {
+    departments: [],
+    users: [],
+    categories: [],
+    items: [],
+    requests: [],
+    movements: [],
+  };
+  return {
+    ...empty,
+    dashboard: buildDashboard(empty),
+    source: 'api',
+    apiAvailable: false,
+  };
+}
+
 function normalizeApiState(payload) {
   const state = {
     departments: payload.departments || [],
@@ -109,24 +126,7 @@ function normalizeApiState(payload) {
 export default function App() {
   const [section, setSection] = useState('dashboard');
   const [loading, setLoading] = useState(true);
-  const [state, setState] = useState({
-    departments: [],
-    users: [],
-    categories: [],
-    items: [],
-    requests: [],
-    movements: [],
-    dashboard: buildDashboard({
-      departments: [],
-      users: [],
-      categories: [],
-      items: [],
-      requests: [],
-      movements: [],
-    }),
-    source: 'api',
-    apiAvailable: false,
-  });
+  const [state, setState] = useState(createEmptyState);
   const [createOpen, setCreateOpen] = useState(false);
   const [receiveOpen, setReceiveOpen] = useState(false);
   const [selectedRequestId, setSelectedRequestId] = useState(null);
@@ -134,12 +134,15 @@ export default function App() {
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [search, setSearch] = useState('');
   const [message, setMessage] = useState('');
-  const [activeUserId, setActiveUserId] = useState(null);
   const [error, setError] = useState('');
+  const [authUser, setAuthUser] = useState(null);
+  const [authLoading, setAuthLoading] = useState(Boolean(api.getToken()));
+  const [loginForm, setLoginForm] = useState({ username: 'admin', password: 'admin123' });
+  const [loginSubmitting, setLoginSubmitting] = useState(false);
 
   const activeUser = useMemo(
-    () => state.users.find((user) => user.id === activeUserId) || state.users[0] || null,
-    [state.users, activeUserId],
+    () => authUser || null,
+    [authUser],
   );
   const canManage = activeUser?.role === 'ADMIN' || activeUser?.role === 'RESPONSIBLE';
   const selectedRequest = state.requests.find((request) => request.id === selectedRequestId) || null;
@@ -148,7 +151,16 @@ export default function App() {
   useEffect(() => {
     let alive = true;
     async function load() {
+      if (!api.getToken()) {
+        if (!alive) return;
+        setLoading(false);
+        setAuthLoading(false);
+        return;
+      }
       try {
+        const me = await api.me();
+        if (!alive) return;
+        setAuthUser(me);
         const [dashboard, requests, items, users, departments, categories, movements] = await Promise.all([
           api.getDashboard(),
           api.getRequests(),
@@ -170,14 +182,18 @@ export default function App() {
             movements,
           }),
         );
-        setActiveUserId((current) => current ?? users?.[0]?.id ?? null);
         setMessage('API подключен');
         setError('');
       } catch {
         if (!alive) return;
-        setError('API недоступен. Проверьте запуск backend-сервиса.');
+        setToken(null);
+        setAuthUser(null);
+        setError('Сессия не найдена или недействительна. Войдите снова.');
       } finally {
-        if (alive) setLoading(false);
+        if (alive) {
+          setLoading(false);
+          setAuthLoading(false);
+        }
       }
     }
     load();
@@ -208,13 +224,48 @@ export default function App() {
           movements,
         }),
       );
-      setActiveUserId((current) => current ?? users?.[0]?.id ?? null);
       setError('');
       setMessage('Данные обновлены');
-    } catch {
+    } catch (exception) {
+      if (exception?.status === 401) {
+        logout();
+        setError('Сессия не найдена или недействительна. Войдите снова.');
+        return;
+      }
       setError('Не удалось обновить данные с API.');
     }
   }
+
+  const login = async (event) => {
+    event.preventDefault();
+    setLoginSubmitting(true);
+    setLoading(true);
+    setError('');
+    try {
+      const response = await api.login(loginForm);
+      setToken(response.token);
+      setAuthUser(response.user);
+      await reloadApiSnapshot();
+      setMessage('Вход выполнен');
+    } catch {
+      setError('Не удалось войти в систему. Проверьте логин и пароль.');
+    } finally {
+      setLoginSubmitting(false);
+      setLoading(false);
+    }
+  };
+
+  const logout = () => {
+    setToken(null);
+    setAuthUser(null);
+    setState(createEmptyState());
+    setMessage('');
+    setError('');
+    setSection('dashboard');
+    setSelectedRequestId(null);
+    setSelectedItemId(null);
+    setLoading(false);
+  };
 
   const runApiAction = async (action, successMessage) => {
     try {
@@ -222,7 +273,12 @@ export default function App() {
       await reloadApiSnapshot();
       setMessage(successMessage);
       setError('');
-    } catch {
+    } catch (exception) {
+      if (exception?.status === 401) {
+        logout();
+        setError('Сессия завершена. Войдите снова.');
+        return;
+      }
       setError('Не удалось выполнить действие через API.');
     }
   };
@@ -265,6 +321,59 @@ export default function App() {
 
   const lowStockItems = state.items.filter((item) => item.currentQuantity <= item.minQuantity);
 
+  if (authLoading || loading) {
+    return (
+      <Stack alignItems="center" justifyContent="center" sx={{ minHeight: '100vh', background: 'linear-gradient(180deg, #eef7f5 0%, #f8fafc 100%)' }}>
+        <CircularProgress />
+        <Typography sx={{ mt: 2 }}>Загрузка...</Typography>
+      </Stack>
+    );
+  }
+
+  if (!activeUser) {
+    return (
+      <Box sx={{ minHeight: '100vh', display: 'grid', placeItems: 'center', background: 'linear-gradient(180deg, #eef7f5 0%, #f8fafc 100%)', p: 2 }}>
+        <Paper elevation={0} sx={{ width: '100%', maxWidth: 460, p: 4, borderRadius: 5, border: '1px solid rgba(15, 23, 42, 0.08)' }}>
+          <Stack spacing={2.5} component="form" onSubmit={login}>
+            <Stack spacing={0.5} alignItems="center">
+              <Inventory2Icon color="primary" sx={{ fontSize: 42 }} />
+              <Typography variant="h5" textAlign="center">
+                Вход в систему
+              </Typography>
+              <Typography variant="body2" color="text.secondary" textAlign="center">
+                МБУ «Просветское» · система заказа и учета канцтоваров
+              </Typography>
+            </Stack>
+            {error ? <Alert severity="error">{error}</Alert> : null}
+            <TextField
+              label="Логин"
+              value={loginForm.username}
+              onChange={(event) => setLoginForm((current) => ({ ...current, username: event.target.value }))}
+              autoComplete="username"
+              required
+              fullWidth
+            />
+            <TextField
+              label="Пароль"
+              type="password"
+              value={loginForm.password}
+              onChange={(event) => setLoginForm((current) => ({ ...current, password: event.target.value }))}
+              autoComplete="current-password"
+              required
+              fullWidth
+            />
+            <Button type="submit" variant="contained" size="large" disabled={loginSubmitting}>
+              {loginSubmitting ? 'Входим...' : 'Войти'}
+            </Button>
+            <Typography variant="caption" color="text.secondary" textAlign="center">
+              Демо-пароли: admin123, employee123, responsible123
+            </Typography>
+          </Stack>
+        </Paper>
+      </Box>
+    );
+  }
+
   return (
     <Box sx={{ display: 'flex', minHeight: '100vh', background: 'linear-gradient(180deg, #eef7f5 0%, #f8fafc 24%, #f8fafc 100%)' }}>
       <AppBar
@@ -290,19 +399,19 @@ export default function App() {
             variant="filled"
             sx={{ fontWeight: 700 }}
           />
-          <FormControl size="small" sx={{ minWidth: 220, bgcolor: 'rgba(255,255,255,0.12)', borderRadius: 2 }}>
-            <Select
-              value={activeUserId}
-              onChange={(event) => setActiveUserId(Number(event.target.value))}
-              sx={{ color: 'white', '& .MuiSvgIcon-root': { color: 'white' } }}
-            >
-              {state.users.map((user) => (
-                <MenuItem key={user.id} value={user.id}>
-                  {user.fullName} · {user.role}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
+          <Stack direction="row" spacing={1.5} alignItems="center">
+            <Box sx={{ textAlign: 'right' }}>
+              <Typography variant="body2" fontWeight={700}>
+                {activeUser.fullName}
+              </Typography>
+              <Typography variant="caption" sx={{ opacity: 0.85 }}>
+                {activeUser.role}
+              </Typography>
+            </Box>
+            <Button variant="outlined" color="inherit" onClick={logout}>
+              Выйти
+            </Button>
+          </Stack>
         </Toolbar>
       </AppBar>
 

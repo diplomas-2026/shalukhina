@@ -1,17 +1,37 @@
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
+const TOKEN_KEY = 'shalukhina-auth-token';
+
+function getToken() {
+  return window.localStorage.getItem(TOKEN_KEY);
+}
+
+export function setToken(token) {
+  if (token) {
+    window.localStorage.setItem(TOKEN_KEY, token);
+  } else {
+    window.localStorage.removeItem(TOKEN_KEY);
+  }
+}
 
 async function request(path, options = {}) {
+  const headers = {
+    'Content-Type': 'application/json',
+    ...(options.headers || {}),
+  };
+  const token = options.noAuth ? null : getToken();
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+
   const response = await fetch(`${API_BASE_URL}${path}`, {
-    headers: {
-      'Content-Type': 'application/json',
-      ...(options.headers || {}),
-    },
     ...options,
+    headers,
   });
 
   if (!response.ok) {
-    const text = await response.text();
-    throw new Error(text || `HTTP ${response.status}`);
+    const error = new Error(await response.text() || `HTTP ${response.status}`);
+    error.status = response.status;
+    throw error;
   }
 
   if (response.status === 204) {
@@ -22,6 +42,8 @@ async function request(path, options = {}) {
 }
 
 export const api = {
+  login: (body) => request('/api/auth/login', { method: 'POST', body: JSON.stringify(body), noAuth: true }),
+  me: () => request('/api/auth/me'),
   getDashboard: () => request('/api/dashboard'),
   getRequests: () => request('/api/requests'),
   createRequest: (body) => request('/api/requests', { method: 'POST', body: JSON.stringify(body) }),
@@ -35,4 +57,5 @@ export const api = {
   getDepartments: () => request('/api/departments'),
   getCategories: () => request('/api/categories'),
   getMovements: () => request('/api/inventory/movements'),
+  getToken,
 };

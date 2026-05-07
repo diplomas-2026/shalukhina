@@ -16,6 +16,7 @@ import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.stereotype.Component;
+import org.springframework.security.crypto.password.PasswordEncoder;
 
 @Component
 @RequiredArgsConstructor
@@ -26,6 +27,7 @@ public class SeedDataInitializer implements CommandLineRunner {
     private final SupplyCategoryRepository categoryRepository;
     private final SupplyItemRepository itemRepository;
     private final RequestService requestService;
+    private final PasswordEncoder passwordEncoder;
 
     @Override
     public void run(String... args) {
@@ -47,6 +49,7 @@ public class SeedDataInitializer implements CommandLineRunner {
         admin.setFullName("Администратор системы");
         admin.setEmail("admin@prosvet.ru");
         admin.setUsername("admin");
+        admin.setPasswordHash(passwordEncoder.encode("admin123"));
         admin.setRole(UserRole.ADMIN);
         admin.setDepartment(adminDepartment);
         admin.setPosition("Администратор");
@@ -56,6 +59,7 @@ public class SeedDataInitializer implements CommandLineRunner {
         employee.setFullName("Иван Петров");
         employee.setEmail("ivan.petrov@prosvet.ru");
         employee.setUsername("ipetrov");
+        employee.setPasswordHash(passwordEncoder.encode("employee123"));
         employee.setRole(UserRole.EMPLOYEE);
         employee.setDepartment(servicesDepartment);
         employee.setPosition("Специалист");
@@ -65,6 +69,7 @@ public class SeedDataInitializer implements CommandLineRunner {
         responsible.setFullName("Ольга Сидорова");
         responsible.setEmail("olga.sidorova@prosvet.ru");
         responsible.setUsername("osidorova");
+        responsible.setPasswordHash(passwordEncoder.encode("responsible123"));
         responsible.setRole(UserRole.RESPONSIBLE);
         responsible.setDepartment(adminDepartment);
         responsible.setPosition("Ответственный за заявки и склад");
