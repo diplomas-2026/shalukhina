@@ -16,14 +16,12 @@ import {
   Paper,
   Select,
   Stack,
-  Tab,
   Table,
   TableBody,
   TableCell,
   TableContainer,
   TableHead,
   TableRow,
-  Tabs,
   TextField,
   Typography,
 } from '@mui/material';
@@ -262,15 +260,10 @@ export function AdminDirectoryPanel({
   onSaveItem,
   onDeleteItem,
 }) {
-  const [tab, setTab] = useState(defaultTab);
   const [userDialogOpen, setUserDialogOpen] = useState(false);
   const [editingUser, setEditingUser] = useState(null);
   const [itemDialogOpen, setItemDialogOpen] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
-
-  useEffect(() => {
-    setTab(defaultTab);
-  }, [defaultTab]);
 
   const userCount = users.length;
   const itemCount = items.length;
@@ -330,14 +323,7 @@ export function AdminDirectoryPanel({
         </Stack>
       </Paper>
 
-      <Paper elevation={0} sx={{ p: 1.5, borderRadius: 2, border: '1px solid rgba(15, 23, 42, 0.08)' }}>
-        <Tabs value={tab} onChange={(_, value) => setTab(value)}>
-          <Tab value="users" label="Сотрудники" />
-          <Tab value="items" label="Товары" />
-        </Tabs>
-      </Paper>
-
-      {tab === 'users' ? (
+      {defaultTab === 'users' ? (
         <Paper elevation={0} sx={{ p: 2.5, borderRadius: 2, border: '1px solid rgba(15, 23, 42, 0.08)' }}>
           <Stack spacing={2}>
             <Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" alignItems={{ xs: 'stretch', md: 'center' }} spacing={2}>
