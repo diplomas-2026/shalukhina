@@ -15,7 +15,7 @@ const formatDateTime = (value) =>
     timeStyle: 'short',
   }).format(new Date(value));
 
-export function RequestKanbanBoard({ requests, onMoveRequest, onOpenRequest, allowedTargets }) {
+export function RequestKanbanBoard({ requests, onMoveRequest, onOpenRequest }) {
   const [draggedRequest, setDraggedRequest] = useState(null);
   const [overStatus, setOverStatus] = useState(null);
 
@@ -64,7 +64,7 @@ export function RequestKanbanBoard({ requests, onMoveRequest, onOpenRequest, all
       }}
     >
       {columns.map((column) => {
-        const canDrop = draggedRequest && (allowedTargets?.[draggedRequest.status] || []).includes(column.status);
+        const canDrop = Boolean(draggedRequest);
         return (
           <Paper
             key={column.status}

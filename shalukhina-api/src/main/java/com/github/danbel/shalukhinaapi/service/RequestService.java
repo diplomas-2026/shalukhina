@@ -131,10 +131,6 @@ public class RequestService {
             throw new IllegalArgumentException("Status is required");
         }
 
-        if (!isAllowedTransition(request.getStatus(), command.status())) {
-            throw new IllegalStateException("Invalid status transition");
-        }
-
         request.setStatus(command.status());
         if (command.status() == RequestStatus.APPROVED) {
             request.setApprovedBy(actor);
@@ -205,17 +201,6 @@ public class RequestService {
         SupplyRequest savedRequest = requestRepository.save(request);
         addStatusHistory(savedRequest, actor, RequestStatus.ISSUED, document == null || document.isBlank() ? "Товары выданы" : document);
         return savedRequest;
-    }
-
-    private boolean isAllowedTransition(RequestStatus currentStatus, RequestStatus nextStatus) {
-        return switch (currentStatus) {
-            case SUBMITTED -> nextStatus == RequestStatus.APPROVED
-                    || nextStatus == RequestStatus.REJECTED
-                    || nextStatus == RequestStatus.CANCELLED;
-            case APPROVED -> nextStatus == RequestStatus.ISSUED
-                    || nextStatus == RequestStatus.CANCELLED;
-            default -> false;
-        };
     }
 
     private void addStatusHistory(SupplyRequest request, SystemUser actor, RequestStatus status, String note) {

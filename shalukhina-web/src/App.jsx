@@ -382,14 +382,10 @@ export default function App() {
   };
 
   const moveRequestStatus = async (requestId, nextStatus) => {
-    if (nextStatus === 'ISSUED') {
-      await issueRequest(requestId);
-      return;
-    }
-
     const noteByStatus = {
       APPROVED: 'Согласовано через канбан',
       REJECTED: 'Отклонено через канбан',
+      ISSUED: 'Выдано через канбан',
     };
     await runApiAction(
       () => api.changeRequestStatus(requestId, { status: nextStatus, note: noteByStatus[nextStatus] || 'Изменено через канбан' }),
@@ -705,12 +701,6 @@ export default function App() {
                   requests={kanbanRequests}
                   onMoveRequest={moveRequestStatus}
                   onOpenRequest={openRequestDetailsPage}
-                  allowedTargets={{
-                    SUBMITTED: ['APPROVED', 'REJECTED'],
-                    APPROVED: ['ISSUED'],
-                    REJECTED: [],
-                    ISSUED: [],
-                  }}
                 />
               ) : (
                 <>
