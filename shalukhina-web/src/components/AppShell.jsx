@@ -18,7 +18,6 @@ import {
 } from '@mui/material';
 import MenuIcon from '@mui/icons-material/Menu';
 import AddIcon from '@mui/icons-material/Add';
-import Inventory2Icon from '@mui/icons-material/Inventory2';
 import LogoutIcon from '@mui/icons-material/Logout';
 
 const drawerWidth = 280;
@@ -36,7 +35,6 @@ export function AppShell({
   children,
   onCreateRequest,
   onLogout,
-  onReceiveItem,
   onSectionChange,
   sectionTitles,
   visibleNavItems,
@@ -76,11 +74,6 @@ export function AppShell({
         <Button fullWidth variant="contained" startIcon={<AddIcon />} onClick={onCreateRequest}>
           Создать заявку
         </Button>
-        {canManage ? (
-          <Button fullWidth variant="outlined" onClick={onReceiveItem}>
-            Пополнить склад
-          </Button>
-        ) : null}
       </Stack>
     </Box>
   );
@@ -102,7 +95,6 @@ export function AppShell({
               <MenuIcon />
             </IconButton>
           ) : null}
-          <Inventory2Icon />
           <Box sx={{ flexGrow: 1 }}>
             <Typography variant="h6">МБУ «Просветское»</Typography>
             <Typography variant="body2" sx={{ opacity: 0.85 }}>

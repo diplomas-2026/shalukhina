@@ -39,7 +39,6 @@ import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
 import { api, setToken } from './lib/http';
 import { StatCard } from './components/StatCard';
 import { StatusChip } from './components/StatusChip';
-import { ReceiveDialog } from './components/ReceiveDialog';
 import { PurchaseOrderDialog } from './components/PurchaseOrderDialog';
 import { PurchaseKanbanBoard } from './components/PurchaseKanbanBoard';
 import { RequestFormPage } from './components/RequestFormPage';
@@ -149,7 +148,6 @@ export default function App() {
   const [section, setSection] = useState('dashboard');
   const [loading, setLoading] = useState(true);
   const [state, setState] = useState(createEmptyState);
-  const [receiveOpen, setReceiveOpen] = useState(false);
   const [purchaseDialogOpen, setPurchaseDialogOpen] = useState(false);
   const [purchaseInitialItems, setPurchaseInitialItems] = useState([]);
   const [purchaseInitialWarehouseId, setPurchaseInitialWarehouseId] = useState('');
@@ -449,10 +447,6 @@ export default function App() {
     } finally {
       setStatusChangingRequestId((current) => (current === requestId ? null : current));
     }
-  };
-
-  const receiveItem = async (payload) => {
-    await runApiAction(() => api.receiveItem(payload.itemId, payload), 'Поступление сохранено');
   };
 
   const createPurchase = async (payload) => {
@@ -881,6 +875,7 @@ export default function App() {
                   requests={kanbanRequests}
                   onMoveRequest={moveRequestStatus}
                   onOpenRequest={openRequestDetailsPage}
+                  onCreatePurchase={openPurchaseDialog}
                   statusChangingRequestId={statusChangingRequestId}
                 />
               ) : (
@@ -1408,7 +1403,6 @@ export default function App() {
         canManage={canManage}
         onCreateRequest={openRequestCreatePage}
         onLogout={logout}
-        onReceiveItem={() => setReceiveOpen(true)}
         onSectionChange={handleSectionChange}
         sectionTitles={sectionTitles}
         visibleNavItems={visibleNavItems}
@@ -1417,14 +1411,6 @@ export default function App() {
           {content}
         </Container>
       </AppShell>
-
-      <ReceiveDialog
-        open={receiveOpen}
-        onClose={() => setReceiveOpen(false)}
-        onSubmit={receiveItem}
-        items={state.items}
-        actor={activeUser}
-      />
 
       <PurchaseOrderDialog
         open={purchaseDialogOpen}

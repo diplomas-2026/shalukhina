@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Box, CircularProgress, Paper, Stack, Typography } from '@mui/material';
+import { Box, Button, CircularProgress, Paper, Stack, Typography } from '@mui/material';
 import { StatusChip } from './StatusChip';
 
 const columns = [
@@ -16,7 +16,7 @@ const formatDateTime = (value) =>
     timeStyle: 'short',
   }).format(new Date(value));
 
-export function RequestKanbanBoard({ requests, onMoveRequest, onOpenRequest, statusChangingRequestId }) {
+export function RequestKanbanBoard({ requests, onMoveRequest, onOpenRequest, onCreatePurchase, statusChangingRequestId }) {
   const [draggedRequest, setDraggedRequest] = useState(null);
   const [overStatus, setOverStatus] = useState(null);
 
@@ -131,11 +131,11 @@ export function RequestKanbanBoard({ requests, onMoveRequest, onOpenRequest, sta
                         handleDragStart(request.id);
                       }}
                       onDragEnd={handleDragEnd}
-                      onClick={() => {
-                        if (!isLoading) {
-                          onOpenRequest(request.id);
-                        }
-                      }}
+                        onClick={() => {
+                          if (!isLoading) {
+                            onOpenRequest(request.id);
+                          }
+                        }}
                       sx={{
                         p: 1.5,
                         borderRadius: 2,
@@ -164,6 +164,19 @@ export function RequestKanbanBoard({ requests, onMoveRequest, onOpenRequest, sta
                         <Typography variant="body2" color="text.secondary">
                           {request.items.length} позиций · {formatDateTime(request.createdAt)}
                         </Typography>
+                        {column.status === 'PURCHASE_WAIT' && typeof onCreatePurchase === 'function' ? (
+                          <Button
+                            size="small"
+                            variant="outlined"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              onCreatePurchase(request);
+                            }}
+                            disabled={isLoading}
+                          >
+                            Создать закупку
+                          </Button>
+                        ) : null}
                         {isLoading ? (
                           <Stack direction="row" spacing={1} alignItems="center" sx={{ pt: 0.5 }}>
                             <CircularProgress size={16} />
