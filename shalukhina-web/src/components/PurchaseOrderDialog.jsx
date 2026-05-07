@@ -22,7 +22,7 @@ import DeleteIcon from '@mui/icons-material/Delete';
 
 const emptyLine = { itemId: '', quantity: 1 };
 
-export function PurchaseOrderDialog({ open, items, warehouses, initialItems, initialDeliveryLocation, onClose, onSubmit }) {
+export function PurchaseOrderDialog({ open, items, warehouses, initialItems, initialWarehouseId, onClose, onSubmit }) {
   const initialLines = useMemo(() => {
     if (initialItems?.length) {
       return initialItems.map((line) => ({
@@ -34,17 +34,17 @@ export function PurchaseOrderDialog({ open, items, warehouses, initialItems, ini
   }, [initialItems, items]);
 
   const [comment, setComment] = useState('');
-  const [deliveryLocation, setDeliveryLocation] = useState(initialDeliveryLocation || 'Склад МБУ Просветское');
+  const [warehouseId, setWarehouseId] = useState(initialWarehouseId || String(warehouses[0]?.id || ''));
   const [lines, setLines] = useState(initialLines);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
   useEffect(() => {
     setComment('');
-    setDeliveryLocation(initialDeliveryLocation || 'Склад МБУ Просветское');
+    setWarehouseId(initialWarehouseId || String(warehouses[0]?.id || ''));
     setLines(initialLines);
     setError('');
-  }, [initialDeliveryLocation, initialLines, open]);
+  }, [initialLines, initialWarehouseId, open, warehouses]);
 
   useEffect(() => {
     if (!items.length) {
@@ -55,7 +55,7 @@ export function PurchaseOrderDialog({ open, items, warehouses, initialItems, ini
     );
   }, [items]);
 
-  const canSubmit = Boolean(deliveryLocation.trim()) && lines.length > 0 && lines.every((line) => line.itemId && Number(line.quantity) > 0);
+  const canSubmit = Boolean(warehouseId) && lines.length > 0 && lines.every((line) => line.itemId && Number(line.quantity) > 0);
   const hasWarehouses = Array.isArray(warehouses) && warehouses.length > 0;
 
   const updateLine = (index, patch) => {
@@ -74,8 +74,10 @@ export function PurchaseOrderDialog({ open, items, warehouses, initialItems, ini
     setSaving(true);
     setError('');
     try {
+      const selectedWarehouse = warehouses.find((warehouse) => String(warehouse.id) === String(warehouseId));
       await onSubmit({
-        deliveryLocation,
+        deliveryWarehouseId: hasWarehouses ? warehouseId : null,
+        deliveryLocation: hasWarehouses ? selectedWarehouse?.name || '' : warehouseId,
         comment,
         items: lines.map((line) => ({
           itemId: Number(line.itemId),
@@ -108,9 +110,9 @@ export function PurchaseOrderDialog({ open, items, warehouses, initialItems, ini
               <Typography variant="caption" color="text.secondary" sx={{ mb: 0.5 }}>
                 Склад доставки
               </Typography>
-              <Select value={deliveryLocation} onChange={(event) => setDeliveryLocation(event.target.value)}>
+              <Select value={warehouseId} onChange={(event) => setWarehouseId(event.target.value)}>
                 {warehouses.map((warehouse) => (
-                  <MenuItem key={warehouse.id} value={warehouse.name}>
+                  <MenuItem key={warehouse.id} value={String(warehouse.id)}>
                     {warehouse.name}
                   </MenuItem>
                 ))}
@@ -120,8 +122,8 @@ export function PurchaseOrderDialog({ open, items, warehouses, initialItems, ini
             <TextField
               fullWidth
               label="Склад доставки"
-              value={deliveryLocation}
-              onChange={(event) => setDeliveryLocation(event.target.value)}
+              value={warehouseId}
+              onChange={(event) => setWarehouseId(event.target.value)}
               helperText="Укажите, куда должна поступить закупка."
             />
           )}

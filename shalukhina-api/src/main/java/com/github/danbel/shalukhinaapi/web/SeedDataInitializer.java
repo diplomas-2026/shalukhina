@@ -231,14 +231,16 @@ public class SeedDataInitializer implements CommandLineRunner {
         SystemUser responsible = userRepository.findByUsername("osidorova").orElse(null);
         SystemUser accountant = userRepository.findByUsername("milina").orElse(null);
         SystemUser admin = userRepository.findByUsername("admin").orElse(null);
+        Warehouse deliveryWarehouse = warehouseRepository.findAllByOrderByNameAsc().stream().findFirst().orElse(null);
         List<SupplyItem> items = itemRepository.findAll();
 
-        if (responsible == null || accountant == null || admin == null || items.size() < 4) {
+        if (responsible == null || accountant == null || admin == null || deliveryWarehouse == null || items.size() < 4) {
             return;
         }
 
         PurchaseOrder draft = purchaseOrderService.create(new PurchaseOrderService.CreatePurchaseOrderCommand(
                 responsible.getId(),
+                deliveryWarehouse.getId(),
                 "Склад МБУ Просветское",
                 "Черновик закупки для канцелярии",
                 List.of(
@@ -254,6 +256,7 @@ public class SeedDataInitializer implements CommandLineRunner {
 
         PurchaseOrder ordered = purchaseOrderService.create(new PurchaseOrderService.CreatePurchaseOrderCommand(
                 accountant.getId(),
+                deliveryWarehouse.getId(),
                 "Склад МБУ Просветское",
                 "Заказ на ручки и файлы",
                 List.of(
@@ -272,6 +275,7 @@ public class SeedDataInitializer implements CommandLineRunner {
 
         PurchaseOrder completed = purchaseOrderService.create(new PurchaseOrderService.CreatePurchaseOrderCommand(
                 admin.getId(),
+                deliveryWarehouse.getId(),
                 "Склад МБУ Просветское",
                 "Поставка бумаги и блокнотов",
                 List.of(

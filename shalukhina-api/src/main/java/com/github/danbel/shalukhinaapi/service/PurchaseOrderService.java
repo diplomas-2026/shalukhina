@@ -7,10 +7,12 @@ import com.github.danbel.shalukhinaapi.domain.StockMovement;
 import com.github.danbel.shalukhinaapi.domain.StockMovementType;
 import com.github.danbel.shalukhinaapi.domain.SupplyItem;
 import com.github.danbel.shalukhinaapi.domain.SystemUser;
+import com.github.danbel.shalukhinaapi.domain.Warehouse;
 import com.github.danbel.shalukhinaapi.repo.PurchaseOrderRepository;
 import com.github.danbel.shalukhinaapi.repo.StockMovementRepository;
 import com.github.danbel.shalukhinaapi.repo.SupplyItemRepository;
 import com.github.danbel.shalukhinaapi.repo.SystemUserRepository;
+import com.github.danbel.shalukhinaapi.repo.WarehouseRepository;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -26,6 +28,7 @@ public class PurchaseOrderService {
     private final PurchaseOrderRepository purchaseOrderRepository;
     private final SupplyItemRepository itemRepository;
     private final SystemUserRepository userRepository;
+    private final WarehouseRepository warehouseRepository;
     private final StockMovementRepository movementRepository;
 
     public List<PurchaseOrder> listOrders() {
@@ -36,8 +39,19 @@ public class PurchaseOrderService {
     public PurchaseOrder create(CreatePurchaseOrderCommand command) {
         SystemUser creator = userRepository.findById(command.createdById())
                 .orElseThrow(() -> new DomainNotFoundException("User not found: " + command.createdById()));
-        if (command.deliveryLocation() == null || command.deliveryLocation().isBlank()) {
-            throw new IllegalArgumentException("Delivery location is required");
+
+        Warehouse deliveryWarehouse = null;
+        if (command.deliveryWarehouseId() != null) {
+            deliveryWarehouse = warehouseRepository.findById(command.deliveryWarehouseId())
+                    .orElseThrow(() -> new DomainNotFoundException("Warehouse not found: " + command.deliveryWarehouseId()));
+        }
+
+        String deliveryLocation = command.deliveryLocation();
+        if ((deliveryLocation == null || deliveryLocation.isBlank()) && deliveryWarehouse == null) {
+            throw new IllegalArgumentException("Delivery warehouse is required");
+        }
+        if (deliveryWarehouse != null) {
+            deliveryLocation = deliveryWarehouse.getName();
         }
 
         PurchaseOrder order = new PurchaseOrder();
@@ -45,7 +59,8 @@ public class PurchaseOrderService {
         order.setStatus(PurchaseOrderStatus.DRAFT);
         order.setComment(command.comment());
         order.setCreatedBy(creator);
-        order.setDeliveryLocation(command.deliveryLocation().trim());
+        order.setDeliveryWarehouse(deliveryWarehouse);
+        order.setDeliveryLocation(deliveryLocation.trim());
 
         List<PurchaseOrderItem> items = new ArrayList<>();
         for (CreatePurchaseOrderItemCommand itemCommand : command.items()) {
@@ -105,6 +120,7 @@ public class PurchaseOrderService {
 
     public record CreatePurchaseOrderCommand(
             Long createdById,
+            Long deliveryWarehouseId,
             String deliveryLocation,
             String comment,
             List<CreatePurchaseOrderItemCommand> items

@@ -152,7 +152,7 @@ export default function App() {
   const [receiveOpen, setReceiveOpen] = useState(false);
   const [purchaseDialogOpen, setPurchaseDialogOpen] = useState(false);
   const [purchaseInitialItems, setPurchaseInitialItems] = useState([]);
-  const [purchaseInitialDeliveryLocation, setPurchaseInitialDeliveryLocation] = useState('Склад МБУ Просветское');
+  const [purchaseInitialWarehouseId, setPurchaseInitialWarehouseId] = useState('');
   const [warehouseForm, setWarehouseForm] = useState({ code: '', name: '', description: '' });
   const [itemForm, setItemForm] = useState({
     name: '',
@@ -238,6 +238,7 @@ export default function App() {
       }));
     }
   }, [warehouses, itemForm.storageLocation]);
+  const defaultWarehouseId = warehouses[0]?.id ? String(warehouses[0].id) : '';
   const visibleRecentRequests = useMemo(
     () => (isEmployee ? employeeRequests : state.dashboard.recentRequests),
     [employeeRequests, isEmployee, state.dashboard.recentRequests],
@@ -388,7 +389,7 @@ export default function App() {
     setSection('dashboard');
     setPurchaseDialogOpen(false);
     setPurchaseInitialItems([]);
-    setPurchaseInitialDeliveryLocation('Склад МБУ Просветское');
+    setPurchaseInitialWarehouseId('');
     window.history.pushState({}, '', '/');
     setRoute('/');
     setLoading(false);
@@ -457,6 +458,7 @@ export default function App() {
   const createPurchase = async (payload) => {
     await runApiAction(
       () => api.createPurchase({
+        deliveryWarehouseId: payload.deliveryWarehouseId ? Number(payload.deliveryWarehouseId) : null,
         deliveryLocation: payload.deliveryLocation,
         comment: payload.comment,
         items: payload.items,
@@ -488,7 +490,7 @@ export default function App() {
   const openRequestDetailsPage = (requestId) => navigate(`/requests/${requestId}`);
   const openRequestEditPage = (requestId) => navigate(`/requests/${requestId}/edit`);
   const openPurchaseDialog = (itemOrOptions = null) => {
-    const defaultWarehouseLocation = warehouses[0]?.name || 'Склад МБУ Просветское';
+    const defaultWarehouse = warehouses[0] || null;
     if (itemOrOptions?.items) {
       setPurchaseInitialItems(
         itemOrOptions.items.map((line) => ({
@@ -496,14 +498,18 @@ export default function App() {
           quantity: line.quantityRequested || line.quantity || 1,
         })),
       );
-      setPurchaseInitialDeliveryLocation(itemOrOptions.deliveryLocation || defaultWarehouseLocation);
+      const firstItemWarehouseName = itemOrOptions.items[0]?.item?.storageLocation;
+      const requestWarehouseName = itemOrOptions.deliveryWarehouse?.name || itemOrOptions.deliveryLocation || firstItemWarehouseName;
+      const matchedWarehouse = warehouses.find((warehouse) => warehouse.name === requestWarehouseName);
+      setPurchaseInitialWarehouseId(String(matchedWarehouse?.id || defaultWarehouse?.id || ''));
     } else if (itemOrOptions) {
       const deficit = Math.max(Number(itemOrOptions.minQuantity || 0) - Number(itemOrOptions.currentQuantity || 0), 1);
       setPurchaseInitialItems([{ itemId: itemOrOptions.id, quantity: deficit }]);
-      setPurchaseInitialDeliveryLocation(itemOrOptions.storageLocation || defaultWarehouseLocation);
+      const matchedWarehouse = warehouses.find((warehouse) => warehouse.name === itemOrOptions.storageLocation);
+      setPurchaseInitialWarehouseId(String(matchedWarehouse?.id || defaultWarehouse?.id || ''));
     } else {
       setPurchaseInitialItems([]);
-      setPurchaseInitialDeliveryLocation(defaultWarehouseLocation);
+      setPurchaseInitialWarehouseId(String(defaultWarehouse?.id || ''));
     }
     setPurchaseDialogOpen(true);
   };
@@ -512,7 +518,7 @@ export default function App() {
     await createPurchase(payload);
     setPurchaseDialogOpen(false);
     setPurchaseInitialItems([]);
-    setPurchaseInitialDeliveryLocation(warehouses[0]?.name || 'Склад МБУ Просветское');
+    setPurchaseInitialWarehouseId(defaultWarehouseId);
   };
 
   const submitWarehouse = async (event) => {
@@ -1424,12 +1430,12 @@ export default function App() {
         open={purchaseDialogOpen}
         items={state.items}
         initialItems={purchaseInitialItems}
-        initialDeliveryLocation={purchaseInitialDeliveryLocation}
+        initialWarehouseId={purchaseInitialWarehouseId}
         warehouses={warehouses}
         onClose={() => {
           setPurchaseDialogOpen(false);
           setPurchaseInitialItems([]);
-          setPurchaseInitialDeliveryLocation(warehouses[0]?.name || 'Склад МБУ Просветское');
+          setPurchaseInitialWarehouseId(defaultWarehouseId);
         }}
         onSubmit={submitPurchaseOrder}
       />

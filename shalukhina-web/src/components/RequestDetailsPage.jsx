@@ -174,7 +174,7 @@ export function RequestDetailsPage({
               <Button variant="outlined" color="error" onClick={() => changeStatus('REJECTED')} disabled={isStatusChanging}>
                 Отклонить
               </Button>
-              <Button variant="contained" onClick={() => changeStatus('ISSUED')} disabled={isStatusChanging || hasShortage}>
+              <Button variant="contained" onClick={() => changeStatus('ISSUED')} disabled={isStatusChanging}>
                 Выдать
               </Button>
               {isStatusChanging ? (

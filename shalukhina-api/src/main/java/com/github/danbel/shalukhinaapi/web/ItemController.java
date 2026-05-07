@@ -42,13 +42,13 @@ public class ItemController {
     }
 
     @PostMapping
-    @PreAuthorize("hasAnyRole('ADMIN','RESPONSIBLE')")
+    @PreAuthorize("hasRole('ADMIN')")
     public SupplyItem create(@RequestBody SupplyItem item) {
         return repository.save(item);
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN','RESPONSIBLE')")
+    @PreAuthorize("hasRole('ADMIN')")
     public SupplyItem update(@PathVariable Long id, @RequestBody SupplyItem payload) {
         SupplyItem item = get(id);
         item.setName(payload.getName());

@@ -190,7 +190,7 @@ public class RequestService {
             SupplyItem item = requestItem.getItem();
             BigDecimal requested = requestItem.getQuantityRequested();
             if (item.getCurrentQuantity().compareTo(requested) < 0) {
-                throw new IllegalStateException("Not enough stock for item " + item.getName());
+                throw new IllegalStateException("Нельзя перевести заявку в статус \"Выдана\": на складе недостаточно товара \"" + item.getName() + "\"");
             }
             item.setCurrentQuantity(item.getCurrentQuantity().subtract(requested));
             itemRepository.save(item);

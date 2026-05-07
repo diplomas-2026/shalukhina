@@ -35,6 +35,7 @@ public class PurchaseOrderController {
         SystemUser currentUser = currentUserResolver.requireUser(request);
         PurchaseOrderService.CreatePurchaseOrderCommand secureCommand = new PurchaseOrderService.CreatePurchaseOrderCommand(
                 currentUser.getId(),
+                command.deliveryWarehouseId(),
                 command.deliveryLocation(),
                 command.comment(),
                 command.items()

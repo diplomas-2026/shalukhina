@@ -38,6 +38,10 @@ public class PurchaseOrder extends BaseEntity {
     @JoinColumn(name = "created_by_id", nullable = false)
     private SystemUser createdBy;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "delivery_warehouse_id")
+    private Warehouse deliveryWarehouse;
+
     @Column(name = "delivery_location", nullable = false, length = 255)
     private String deliveryLocation;
 
