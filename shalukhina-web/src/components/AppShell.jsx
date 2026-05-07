@@ -23,6 +23,12 @@ import LogoutIcon from '@mui/icons-material/Logout';
 
 const drawerWidth = 280;
 
+const roleLabels = {
+  ADMIN: 'Администратор',
+  RESPONSIBLE: 'Ответственный',
+  EMPLOYEE: 'Сотрудник',
+};
+
 export function AppShell({
   activeSection,
   activeUser,
@@ -37,6 +43,7 @@ export function AppShell({
 }) {
   const isDesktop = useMediaQuery((theme) => theme.breakpoints.up('md'));
   const [mobileOpen, setMobileOpen] = useState(false);
+  const roleLabel = roleLabels[activeUser?.role] || activeUser?.role || '';
 
   const handleNavigate = (section) => {
     onSectionChange(section);
@@ -108,7 +115,7 @@ export function AppShell({
                 {activeUser?.fullName}
               </Typography>
               <Typography variant="caption" sx={{ opacity: 0.85 }}>
-                {activeUser?.role}
+                {roleLabel}
               </Typography>
             </Box>
             <Button variant="outlined" color="inherit" startIcon={<LogoutIcon />} onClick={onLogout}>
@@ -155,7 +162,7 @@ function PaperCard({ activeUser }) {
       <Stack direction="row" spacing={1.5} alignItems="center" sx={{ mt: 1 }}>
         <Avatar sx={{ width: 40, height: 40 }}>{activeUser?.fullName?.[0] || 'U'}</Avatar>
         <Box>
-          <Typography variant="h6">{activeUser?.position || activeUser?.role}</Typography>
+          <Typography variant="h6">{activeUser?.position || roleLabels[activeUser?.role] || activeUser?.role}</Typography>
           <Typography variant="body2" color="text.secondary">
             {activeUser?.fullName}
           </Typography>
