@@ -30,6 +30,7 @@ public class DashboardService {
         long submitted = requests.stream().filter(r -> r.getStatus() == RequestStatus.SUBMITTED).count();
         long approved = requests.stream().filter(r -> r.getStatus() == RequestStatus.APPROVED).count();
         long issued = requests.stream().filter(r -> r.getStatus() == RequestStatus.ISSUED).count();
+        long rejected = requests.stream().filter(r -> r.getStatus() == RequestStatus.REJECTED).count();
         long lowStock = items.stream().filter(item -> item.getCurrentQuantity().compareTo(item.getMinQuantity()) <= 0).count();
 
         List<SupplyRequest> recentRequests = requests.stream()
@@ -42,7 +43,7 @@ public class DashboardService {
                 .limit(5)
                 .toList();
 
-        return new DashboardResponse(totalRequests, submitted, approved, issued, lowStock, recentRequests, criticalItems);
+        return new DashboardResponse(totalRequests, submitted, approved, issued, rejected, lowStock, recentRequests, criticalItems);
     }
 
     public record DashboardResponse(
@@ -50,6 +51,7 @@ public class DashboardService {
             long submittedRequests,
             long approvedRequests,
             long issuedRequests,
+            long rejectedRequests,
             long lowStockItems,
             List<SupplyRequest> recentRequests,
             List<SupplyItem> criticalItems

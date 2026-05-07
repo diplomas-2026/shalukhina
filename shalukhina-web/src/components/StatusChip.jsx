@@ -8,7 +8,7 @@ const statusMap = {
   REJECTED: { label: 'Отклонена', color: 'error' },
   ISSUED: { label: 'Выдана', color: 'success' },
   CANCELLED: { label: 'Отменена', color: 'default' },
-  EMPLOYEE: { label: 'Сотрудник', color: 'primary' },
+  EMPLOYEE: { label: 'Сотрудник школы', color: 'primary' },
   RESPONSIBLE: { label: 'Ответственный', color: 'secondary' },
   ADMIN: { label: 'Администратор', color: 'info' },
   LOW: { label: 'Низкий', color: 'default' },

@@ -4,15 +4,15 @@ export const appTheme = createTheme({
   palette: {
     mode: 'light',
     primary: {
-      main: '#0f766e',
-      dark: '#115e59',
-      light: '#14b8a6',
+      main: '#2563eb',
+      dark: '#1d4ed8',
+      light: '#60a5fa',
     },
     secondary: {
-      main: '#f97316',
+      main: '#f59e0b',
     },
     background: {
-      default: '#f3f7f6',
+      default: '#f4f8fc',
       paper: '#ffffff',
     },
     text: {
@@ -33,15 +33,29 @@ export const appTheme = createTheme({
     },
   },
   shape: {
-    borderRadius: 16,
+    borderRadius: 6,
   },
   components: {
     MuiButton: {
       styleOverrides: {
         root: {
           textTransform: 'none',
-          borderRadius: 12,
+          borderRadius: 6,
           fontWeight: 700,
+        },
+      },
+    },
+    MuiTextField: {
+      styleOverrides: {
+        root: {
+          backgroundColor: '#ffffff',
+        },
+      },
+    },
+    MuiSelect: {
+      styleOverrides: {
+        select: {
+          backgroundColor: '#ffffff',
         },
       },
     },

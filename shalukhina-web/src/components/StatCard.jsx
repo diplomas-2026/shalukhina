@@ -9,7 +9,7 @@ export function StatCard({ title, value, hint, accent }) {
         p: 2.5,
         border: '1px solid',
         borderColor: 'divider',
-        borderRadius: 4,
+        borderRadius: 2,
         background: accent || 'linear-gradient(180deg, #ffffff, #f8fbfb)',
         minHeight: 120,
       }}

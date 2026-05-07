@@ -73,7 +73,7 @@ export function RequestDialog({ open, onClose, onSubmit, items, requester, depar
 
   return (
     <Dialog open={open} onClose={handleClose} fullWidth maxWidth="md">
-      <DialogTitle>Создание заявки</DialogTitle>
+      <DialogTitle>Новая заявка на канцтовары</DialogTitle>
       <DialogContent dividers>
         <Stack spacing={3} sx={{ pt: 1 }}>
           <Grid container spacing={2}>
@@ -83,7 +83,7 @@ export function RequestDialog({ open, onClose, onSubmit, items, requester, depar
             <Grid item xs={12} md={6}>
               <FormControl fullWidth>
                 <Typography variant="caption" color="text.secondary" sx={{ mb: 0.5 }}>
-                  Подразделение
+                  Кабинет / отдел
                 </Typography>
                 <Select value={departmentId} onChange={(event) => setDepartmentId(Number(event.target.value))}>
                   {departments.map((department) => (
@@ -97,7 +97,7 @@ export function RequestDialog({ open, onClose, onSubmit, items, requester, depar
             <Grid item xs={12} md={6}>
               <FormControl fullWidth>
                 <Typography variant="caption" color="text.secondary" sx={{ mb: 0.5 }}>
-                  Приоритет
+                  Срочность
                 </Typography>
                 <Select value={priority} onChange={(event) => setPriority(event.target.value)}>
                   <MenuItem value="LOW">Низкий</MenuItem>
@@ -110,7 +110,7 @@ export function RequestDialog({ open, onClose, onSubmit, items, requester, depar
             <Grid item xs={12} md={6}>
               <TextField
                 fullWidth
-                label="Комментарий"
+                label="Краткое пояснение"
                 value={comment}
                 onChange={(event) => setComment(event.target.value)}
               />
@@ -122,19 +122,19 @@ export function RequestDialog({ open, onClose, onSubmit, items, requester, depar
           <Stack spacing={2}>
             <Stack direction="row" alignItems="center" justifyContent="space-between">
               <Typography variant="subtitle1" fontWeight={700}>
-                Строки заявки
+                Что нужно заказать
               </Typography>
               <Button startIcon={<AddIcon />} onClick={addLine}>
-                Добавить строку
+                Добавить позицию
               </Button>
             </Stack>
             {lines.map((line, index) => (
               <Grid container spacing={2} key={index} alignItems="center">
                 <Grid item xs={12} md={5}>
-                  <FormControl fullWidth>
-                    <Typography variant="caption" color="text.secondary" sx={{ mb: 0.5 }}>
-                      Товар
-                    </Typography>
+                    <FormControl fullWidth>
+                      <Typography variant="caption" color="text.secondary" sx={{ mb: 0.5 }}>
+                        Товар
+                      </Typography>
                     <Select value={line.itemId} onChange={(event) => updateLine(index, { itemId: Number(event.target.value) })}>
                       {items.map((item) => (
                         <MenuItem key={item.id} value={item.id}>
@@ -154,12 +154,7 @@ export function RequestDialog({ open, onClose, onSubmit, items, requester, depar
                   />
                 </Grid>
                 <Grid item xs={12} md={3.5}>
-                  <TextField
-                    fullWidth
-                    label="Комментарий"
-                    value={line.note}
-                    onChange={(event) => updateLine(index, { note: event.target.value })}
-                  />
+                  <TextField fullWidth label="Примечание" value={line.note} onChange={(event) => updateLine(index, { note: event.target.value })} />
                 </Grid>
                 <Grid item xs={12} md={1}>
                   <IconButton color="error" onClick={() => removeLine(index)} disabled={lines.length === 1}>
@@ -174,7 +169,7 @@ export function RequestDialog({ open, onClose, onSubmit, items, requester, depar
       <DialogActions>
         <Button onClick={handleClose}>Отмена</Button>
         <Button variant="contained" onClick={submit} disabled={!canSubmit}>
-          Создать заявку
+          Отправить заявку
         </Button>
       </DialogActions>
     </Dialog>

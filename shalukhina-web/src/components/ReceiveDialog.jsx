@@ -41,7 +41,7 @@ export function ReceiveDialog({ open, onClose, onSubmit, items, actor }) {
 
   return (
     <Dialog open={open} onClose={handleClose} fullWidth maxWidth="sm">
-      <DialogTitle>Поступление товара</DialogTitle>
+      <DialogTitle>Пополнение склада</DialogTitle>
       <DialogContent dividers>
         <Stack spacing={2.5} sx={{ pt: 1 }}>
           <Grid container spacing={2}>
@@ -63,10 +63,10 @@ export function ReceiveDialog({ open, onClose, onSubmit, items, actor }) {
               <TextField fullWidth label="Количество" type="number" value={quantity} onChange={(event) => setQuantity(event.target.value)} />
             </Grid>
             <Grid item xs={12} md={6}>
-              <TextField fullWidth label="Документ" value={document} onChange={(event) => setDocument(event.target.value)} />
+              <TextField fullWidth label="Накладная / документ" value={document} onChange={(event) => setDocument(event.target.value)} />
             </Grid>
             <Grid item xs={12}>
-              <TextField fullWidth label="Комментарий" value={comment} onChange={(event) => setComment(event.target.value)} />
+              <TextField fullWidth label="Примечание" value={comment} onChange={(event) => setComment(event.target.value)} />
             </Grid>
           </Grid>
         </Stack>
@@ -74,7 +74,7 @@ export function ReceiveDialog({ open, onClose, onSubmit, items, actor }) {
       <DialogActions>
         <Button onClick={handleClose}>Отмена</Button>
         <Button variant="contained" onClick={submit}>
-          Сохранить
+          Сохранить поступление
         </Button>
       </DialogActions>
     </Dialog>
