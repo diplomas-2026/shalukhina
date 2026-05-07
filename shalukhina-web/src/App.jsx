@@ -36,6 +36,7 @@ import LocalShippingIcon from '@mui/icons-material/LocalShipping';
 import HistoryIcon from '@mui/icons-material/History';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
+import * as XLSX from 'xlsx';
 import { api, setToken } from './lib/http';
 import { StatCard } from './components/StatCard';
 import { StatusChip } from './components/StatusChip';
@@ -84,6 +85,57 @@ const formatNumber = (value) =>
   new Intl.NumberFormat('ru-RU', {
     maximumFractionDigits: 2,
   }).format(Number(value));
+
+const requestStatusLabels = {
+  DRAFT: 'Черновик',
+  SUBMITTED: 'Новая',
+  APPROVED: 'Согласована',
+  PURCHASE_WAIT: 'На закупке',
+  REJECTED: 'Отклонена',
+  ISSUED: 'Выдана',
+  CANCELLED: 'Отменена',
+};
+
+const priorityLabels = {
+  LOW: 'Низкий',
+  NORMAL: 'Нормальный',
+  HIGH: 'Высокий',
+  URGENT: 'Срочный',
+};
+
+const purchaseStatusLabels = {
+  DRAFT: 'Черновик',
+  ORDERED: 'Заказана',
+  IN_TRANSIT: 'В пути',
+  COMPLETED: 'Завершена',
+  CANCELLED: 'Отменена',
+};
+
+const movementTypeLabels = {
+  RECEIPT: 'Поступление',
+  ISSUE: 'Выдача',
+  ADJUSTMENT: 'Корректировка',
+};
+
+function downloadWorkbook(fileName, sheets) {
+  const workbook = XLSX.utils.book_new();
+  Object.entries(sheets).forEach(([sheetName, rows]) => {
+    const sheet = XLSX.utils.json_to_sheet(rows);
+    XLSX.utils.book_append_sheet(workbook, sheet, sheetName.slice(0, 31));
+  });
+  const data = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
+  const blob = new Blob([data], {
+    type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  });
+  const url = window.URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = fileName;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.URL.revokeObjectURL(url);
+}
 
 function buildDashboard(state) {
   const lowStockItems = state.items.filter((item) => item.currentQuantity <= item.minQuantity);
@@ -513,6 +565,99 @@ export default function App() {
     setPurchaseDialogOpen(false);
     setPurchaseInitialItems([]);
     setPurchaseInitialWarehouseId(defaultWarehouseId);
+  };
+
+  const exportRequestsReport = () => {
+    downloadWorkbook('otchet-zayavki.xlsx', {
+      'Заявки': state.requests.map((request) => ({
+        'Номер': request.requestNumber,
+        'Кто подал': request.requester?.fullName || '',
+        'Кабинет / отдел': request.department?.name || '',
+        'Статус': requestStatusLabels[request.status] || request.status,
+        'Приоритет': priorityLabels[request.priority] || request.priority,
+        'Позиций': request.items?.length || 0,
+        'Дата создания': formatDateTime(request.createdAt),
+        'Кто согласовал': request.approvedBy?.fullName || '',
+        'Дата согласования': request.approvedAt ? formatDateTime(request.approvedAt) : '',
+        'Комментарий': request.comment || '',
+        'Причина отклонения': request.rejectionReason || '',
+      })),
+    });
+  };
+
+  const exportInventoryReport = () => {
+    downloadWorkbook('otchet-sklad.xlsx', {
+      'Склад': state.items.map((item) => ({
+        'Товар': item.name,
+        'SKU': item.sku || '',
+        'Категория': item.category?.name || '',
+        'Остаток': Number(item.currentQuantity || 0),
+        'Ед. изм.': item.unit || '',
+        'Склад': item.storageLocation || '',
+        'Описание': item.description || '',
+        'Статус': Number(item.currentQuantity || 0) <= Number(item.minQuantity || 0) ? 'Нужно пополнить' : 'Нормально',
+      })),
+    });
+  };
+
+  const exportPurchasesReport = () => {
+    downloadWorkbook('otchet-zakupki.xlsx', {
+      'Закупки': state.purchases.map((purchase) => ({
+        'Номер': purchase.orderNumber,
+        'Склад доставки': purchase.deliveryWarehouse?.name || purchase.deliveryLocation || '',
+        'Статус': purchaseStatusLabels[purchase.status] || purchase.status,
+        'Создано': formatDateTime(purchase.createdAt),
+        'Создал': purchase.createdBy?.fullName || '',
+        'Комментарий': purchase.comment || '',
+        'Позиции': purchase.items?.length || 0,
+      })),
+    });
+  };
+
+  const exportMovementsReport = () => {
+    downloadWorkbook('otchet-dvizhenie-sklada.xlsx', {
+      'Движение склада': state.movements.map((movement) => ({
+        'Дата': formatDateTime(movement.happenedAt),
+        'Тип': movementTypeLabels[movement.type] || movement.type,
+        'Товар': movement.item?.name || '',
+        'Количество': Number(movement.quantity || 0),
+        'Пользователь': movement.actor?.fullName || '',
+        'Документ': movement.sourceDocument || '',
+        'Комментарий': movement.comment || '',
+      })),
+    });
+  };
+
+  const exportFullReport = () => {
+    downloadWorkbook('otchet-polnyj.xlsx', {
+      'Заявки': state.requests.map((request) => ({
+        'Номер': request.requestNumber,
+        'Статус': requestStatusLabels[request.status] || request.status,
+        'Кто подал': request.requester?.fullName || '',
+        'Кабинет / отдел': request.department?.name || '',
+        'Приоритет': priorityLabels[request.priority] || request.priority,
+        'Позиций': request.items?.length || 0,
+        'Дата создания': formatDateTime(request.createdAt),
+      })),
+      'Склад': state.items.map((item) => ({
+        'Товар': item.name,
+        'Остаток': Number(item.currentQuantity || 0),
+        'Ед. изм.': item.unit || '',
+        'Склад': item.storageLocation || '',
+      })),
+      'Закупки': state.purchases.map((purchase) => ({
+        'Номер': purchase.orderNumber,
+        'Статус': purchaseStatusLabels[purchase.status] || purchase.status,
+        'Склад доставки': purchase.deliveryWarehouse?.name || purchase.deliveryLocation || '',
+        'Позиции': purchase.items?.length || 0,
+      })),
+      'Движение': state.movements.map((movement) => ({
+        'Дата': formatDateTime(movement.happenedAt),
+        'Тип': movementTypeLabels[movement.type] || movement.type,
+        'Товар': movement.item?.name || '',
+        'Количество': Number(movement.quantity || 0),
+      })),
+    });
   };
 
   const submitWarehouse = async (event) => {
@@ -1055,73 +1200,94 @@ export default function App() {
         {error ? <Alert severity="error">{error}</Alert> : null}
         {message ? <Alert severity="info">{message}</Alert> : null}
         <Stack spacing={2.5}>
-          <Grid container spacing={2.5}>
-            <Grid item xs={12} md={4}>
-              <StatCard title="Выдано заявок" value={state.dashboard.issuedRequests} hint="Закрыты выдачей товара" />
-            </Grid>
-            <Grid item xs={12} md={4}>
-              <StatCard title="Ожидают согласования" value={state.dashboard.submittedRequests} hint="Очередь на проверку" />
-            </Grid>
-            <Grid item xs={12} md={4}>
-              <StatCard title="Позиций в риске" value={lowStockItems.length} hint="Требуют пополнения" />
-            </Grid>
-          </Grid>
+          <Paper elevation={0} sx={panelSx}>
+            <Stack spacing={1.5}>
+              <Box>
+                <Typography variant="h6">Отчеты в Excel</Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Скачивайте готовые отчеты по заявкам, складу, закупкам и движению товаров.
+                </Typography>
+              </Box>
 
-          <Grid container spacing={2.5}>
-            <Grid item xs={12} lg={7}>
-              <Paper elevation={0} sx={panelSx}>
-                <Typography variant="h6" sx={{ mb: 2 }}>
-                  Товары с низким остатком
-                </Typography>
-                <TableContainer>
-                  <Table size="small">
-                    <TableHead>
-                      <TableRow>
-                        <TableCell>Товар</TableCell>
-                        <TableCell>Остаток</TableCell>
-                        <TableCell>Минимум</TableCell>
-                        <TableCell>Отклонение</TableCell>
-                      </TableRow>
-                    </TableHead>
-                    <TableBody>
-                      {lowStockItems.map((item) => (
-                        <TableRow key={item.id}>
-                          <TableCell>{item.name}</TableCell>
-                          <TableCell>{formatNumber(item.currentQuantity)} {item.unit}</TableCell>
-                          <TableCell>{formatNumber(item.minQuantity)} {item.unit}</TableCell>
-                          <TableCell>
-                            <Typography color="warning.main" fontWeight={700}>
-                              {formatNumber(item.minQuantity - item.currentQuantity)} {item.unit}
-                            </Typography>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </TableContainer>
-              </Paper>
-            </Grid>
-            <Grid item xs={12} lg={5}>
-              <Paper elevation={0} sx={panelSx}>
-                <Typography variant="h6" sx={{ mb: 2 }}>
-                  Движение по заявкам
-                </Typography>
-                <Stack spacing={1.5}>
-                  {state.requests.slice(0, 5).map((request) => (
-                    <Box key={request.id}>
-                      <Stack direction="row" justifyContent="space-between" sx={{ mb: 0.5 }}>
-                        <Typography fontWeight={700}>{request.requestNumber}</Typography>
-                        <StatusChip value={request.status} />
-                      </Stack>
-                      <Typography variant="body2" color="text.secondary">
-                        {request.requester?.fullName} · {request.department?.name}
-                      </Typography>
-                    </Box>
-                  ))}
-                </Stack>
-              </Paper>
-            </Grid>
-          </Grid>
+              <Grid container spacing={2}>
+                <Grid item xs={12} md={6}>
+                  <Paper variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
+                    <Stack spacing={1.25}>
+                      <Box>
+                        <Typography fontWeight={700}>Отчет по заявкам</Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          Все заявки с ФИО, отделом, статусом и датами.
+                        </Typography>
+                      </Box>
+                      <Button variant="contained" onClick={exportRequestsReport}>
+                        Скачать Excel
+                      </Button>
+                    </Stack>
+                  </Paper>
+                </Grid>
+                <Grid item xs={12} md={6}>
+                  <Paper variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
+                    <Stack spacing={1.25}>
+                      <Box>
+                        <Typography fontWeight={700}>Отчет по складу</Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          Текущие остатки, категории и принадлежность к складу.
+                        </Typography>
+                      </Box>
+                      <Button variant="contained" onClick={exportInventoryReport}>
+                        Скачать Excel
+                      </Button>
+                    </Stack>
+                  </Paper>
+                </Grid>
+                <Grid item xs={12} md={6}>
+                  <Paper variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
+                    <Stack spacing={1.25}>
+                      <Box>
+                        <Typography fontWeight={700}>Отчет по закупкам</Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          Статусы закупок, состав и склад доставки.
+                        </Typography>
+                      </Box>
+                      <Button variant="contained" onClick={exportPurchasesReport}>
+                        Скачать Excel
+                      </Button>
+                    </Stack>
+                  </Paper>
+                </Grid>
+                <Grid item xs={12} md={6}>
+                  <Paper variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
+                    <Stack spacing={1.25}>
+                      <Box>
+                        <Typography fontWeight={700}>Отчет по движению</Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          Поступления, выдачи и корректировки по товарам.
+                        </Typography>
+                      </Box>
+                      <Button variant="contained" onClick={exportMovementsReport}>
+                        Скачать Excel
+                      </Button>
+                    </Stack>
+                  </Paper>
+                </Grid>
+                <Grid item xs={12}>
+                  <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, bgcolor: 'rgba(37, 99, 235, 0.04)' }}>
+                    <Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" spacing={2} alignItems={{ xs: 'stretch', md: 'center' }}>
+                      <Box>
+                        <Typography fontWeight={700}>Полный сводный отчет</Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          Один файл со всеми листами: заявки, склад, закупки и движение.
+                        </Typography>
+                      </Box>
+                      <Button variant="contained" color="primary" onClick={exportFullReport}>
+                        Скачать полный Excel
+                      </Button>
+                    </Stack>
+                  </Paper>
+                </Grid>
+              </Grid>
+            </Stack>
+          </Paper>
         </Stack>
       </Stack>
     );
