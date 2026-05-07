@@ -165,13 +165,24 @@ export default function App() {
     () => authUser || null,
     [authUser],
   );
+  const isEmployee = activeUser?.role === 'EMPLOYEE';
   const canManage = activeUser?.role === 'ADMIN' || activeUser?.role === 'RESPONSIBLE';
   const visibleNavItems = useMemo(
-    () => navItems.filter((item) => item.key !== 'users' || canManage),
-    [canManage],
+    () => navItems.filter((item) => {
+      if (isEmployee) {
+        return item.key === 'dashboard' || item.key === 'requests';
+      }
+      return item.key !== 'users' || canManage;
+    }),
+    [canManage, isEmployee],
   );
   const selectedRequest = state.requests.find((request) => request.id === selectedRequestId) || null;
   const selectedItem = state.items.find((item) => item.id === selectedItemId) || null;
+  const employeeRequests = useMemo(
+    () => state.requests.filter((request) => request.requester?.id === activeUser?.id),
+    [state.requests, activeUser?.id],
+  );
+  const visibleRequests = isEmployee ? employeeRequests : state.requests;
   const lowStockItems = useMemo(
     () => state.items.filter((item) => item.currentQuantity <= item.minQuantity),
     [state.items],
@@ -187,6 +198,14 @@ export default function App() {
   const recentMovements = useMemo(
     () => state.movements.slice().sort((a, b) => new Date(b.happenedAt) - new Date(a.happenedAt)).slice(0, 5),
     [state.movements],
+  );
+  const visibleRecentRequests = useMemo(
+    () => (isEmployee ? employeeRequests : state.dashboard.recentRequests),
+    [employeeRequests, isEmployee, state.dashboard.recentRequests],
+  );
+  const visibleCriticalItems = useMemo(
+    () => (isEmployee ? [] : state.dashboard.criticalItems),
+    [isEmployee, state.dashboard.criticalItems],
   );
 
   async function loadSnapshot(includeUsers) {
@@ -208,6 +227,12 @@ export default function App() {
       movements,
     };
   }
+
+  useEffect(() => {
+    if (!visibleNavItems.some((item) => item.key === section)) {
+      setSection(visibleNavItems[0]?.key || 'dashboard');
+    }
+  }, [section, visibleNavItems]);
 
   useEffect(() => {
     let alive = true;
@@ -335,13 +360,13 @@ export default function App() {
   };
 
   const filteredRequests = useMemo(() => {
-    return state.requests.filter((request) => {
+    return visibleRequests.filter((request) => {
       const matchesStatus = statusFilter === 'ALL' || request.status === statusFilter;
       const haystack = `${request.requestNumber} ${request.requester?.fullName} ${request.department?.name} ${request.comment}`.toLowerCase();
       const matchesSearch = haystack.includes(search.toLowerCase());
       return matchesStatus && matchesSearch;
     });
-  }, [state.requests, statusFilter, search]);
+  }, [visibleRequests, statusFilter, search]);
 
   if (authLoading || loading) {
     return (
@@ -484,9 +509,11 @@ export default function App() {
             <Button fullWidth variant="contained" startIcon={<AddIcon />} onClick={() => setCreateOpen(true)} disabled={!canManage && activeUser?.role !== 'EMPLOYEE'}>
               Создать заявку
             </Button>
-            <Button fullWidth variant="outlined" onClick={() => setReceiveOpen(true)} disabled={!canManage}>
-              Пополнить склад
-            </Button>
+            {canManage && (
+              <Button fullWidth variant="outlined" onClick={() => setReceiveOpen(true)}>
+                Пополнить склад
+              </Button>
+            )}
           </Stack>
         </Box>
       </Drawer>
@@ -510,14 +537,16 @@ export default function App() {
                       {sectionTitles[section]}
                     </Typography>
                     <Typography variant="h4" sx={{ mt: 0.5 }}>
-                      {section === 'dashboard' && 'Рабочая панель'}
-                      {section === 'requests' && 'Заявки от сотрудников'}
+                      {section === 'dashboard' && (isEmployee ? 'Мои заявки' : 'Рабочая панель')}
+                      {section === 'requests' && (isEmployee ? 'Мои заявки' : 'Заявки от сотрудников')}
                       {section === 'inventory' && 'Остатки и поступления'}
                       {section === 'reports' && 'Сводка по работе'}
                       {section === 'users' && 'Сотрудники и кабинеты'}
                     </Typography>
                     <Typography color="text.secondary" sx={{ mt: 1 }}>
-                      Здесь видно, кто подал заявку, что согласовано, что выдано и что нужно пополнить.
+                      {isEmployee
+                        ? 'Создавайте заявку, если в кабинете закончились канцтовары, и отслеживайте ее статус.'
+                        : 'Здесь видно, кто подал заявку, что согласовано, что выдано и что нужно пополнить.'}
                     </Typography>
                   </Box>
                   <Stack direction="row" spacing={1} alignItems="start">
@@ -754,7 +783,7 @@ export default function App() {
                 </Stack>
               )}
 
-              {section === 'inventory' && (
+              {!isEmployee && section === 'inventory' && (
                 <Grid container spacing={2.5}>
                   <Grid item xs={12}>
                     <Grid container spacing={2.5}>
@@ -855,7 +884,7 @@ export default function App() {
                 </Grid>
               )}
 
-              {section === 'reports' && (
+              {!isEmployee && section === 'reports' && (
                 <Stack spacing={2.5}>
                   <Grid container spacing={2.5}>
                     <Grid item xs={12} md={4}>
