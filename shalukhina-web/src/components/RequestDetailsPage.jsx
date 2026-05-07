@@ -1,5 +1,5 @@
 import React from 'react';
-import { Box, Button, Divider, Paper, Stack, Typography } from '@mui/material';
+import { Box, Button, CircularProgress, Divider, Paper, Stack, Typography } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import EditIcon from '@mui/icons-material/Edit';
 import { StatusChip } from './StatusChip';
@@ -11,10 +11,26 @@ const formatDateTime = (value) =>
     timeStyle: 'short',
   }).format(new Date(value));
 
-export function RequestDetailsPage({ request, currentUser, onBack, onEdit }) {
+export function RequestDetailsPage({
+  request,
+  currentUser,
+  onBack,
+  onEdit,
+  onChangeStatus,
+  statusChangingRequestId,
+}) {
   if (!request) {
     return null;
   }
+
+  const canManage = currentUser?.role === 'ADMIN' || currentUser?.role === 'RESPONSIBLE';
+  const isStatusChanging = statusChangingRequestId === request.id;
+
+  const changeStatus = (status) => {
+    if (onChangeStatus) {
+      onChangeStatus(request.id, status);
+    }
+  };
 
   return (
     <Stack spacing={2.5} sx={{ maxWidth: 1180, mx: 'auto' }}>
@@ -70,13 +86,48 @@ export function RequestDetailsPage({ request, currentUser, onBack, onEdit }) {
                   {request.rejectionReason}
                 </Typography>
               </Box>
-            ) : null}
+          ) : null}
+        </Stack>
+      </Paper>
+
+      {canManage ? (
+        <Paper elevation={0} sx={{ p: 2.5, borderRadius: 2, border: '1px solid rgba(15, 23, 42, 0.08)' }}>
+          <Stack spacing={1.5}>
+            <Box>
+              <Typography variant="h6">Изменить статус</Typography>
+              <Typography variant="body2" color="text.secondary">
+                Можно быстро перевести заявку в нужный статус прямо со страницы заявки.
+              </Typography>
+            </Box>
+            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} flexWrap="wrap" useFlexGap>
+              <Button variant="outlined" onClick={() => changeStatus('SUBMITTED')} disabled={isStatusChanging}>
+                Новая
+              </Button>
+              <Button variant="outlined" onClick={() => changeStatus('APPROVED')} disabled={isStatusChanging}>
+                Согласовать
+              </Button>
+              <Button variant="outlined" color="error" onClick={() => changeStatus('REJECTED')} disabled={isStatusChanging}>
+                Отклонить
+              </Button>
+              <Button variant="contained" onClick={() => changeStatus('ISSUED')} disabled={isStatusChanging}>
+                Выдать
+              </Button>
+              {isStatusChanging ? (
+                <Stack direction="row" spacing={1} alignItems="center">
+                  <CircularProgress size={18} />
+                  <Typography variant="body2" color="text.secondary">
+                    Обновляем статус...
+                  </Typography>
+                </Stack>
+              ) : null}
+            </Stack>
           </Stack>
         </Paper>
+      ) : null}
 
-        <Paper elevation={0} sx={{ p: 2.5, borderRadius: 2, border: '1px solid rgba(15, 23, 42, 0.08)' }}>
-          <Typography variant="h6" sx={{ mb: 1.5 }}>
-            Состав заявки
+      <Paper elevation={0} sx={{ p: 2.5, borderRadius: 2, border: '1px solid rgba(15, 23, 42, 0.08)' }}>
+        <Typography variant="h6" sx={{ mb: 1.5 }}>
+          Состав заявки
           </Typography>
           <Stack spacing={1.25}>
             {request.items.map((line) => (

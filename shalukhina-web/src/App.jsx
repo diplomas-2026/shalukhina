@@ -556,6 +556,8 @@ export default function App() {
           currentUser={activeUser}
           onBack={() => navigate('/')}
           onEdit={canEditRequest ? () => navigate(`/requests/${routeRequest.id}/edit`) : null}
+          onChangeStatus={moveRequestStatus}
+          statusChangingRequestId={statusChangingRequestId}
         />
       );
     }
