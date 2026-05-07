@@ -10,7 +10,6 @@ TIMESTAMP=$(date '+%Y-%m-%d %H:%M:%S')
 BRANCH=$(git branch --show-current)
 
 echo "Sync repository..."
-git pull --rebase origin "$BRANCH"
 
 echo "Build ${APP_NAME}-api..."
 cd "$API_DIR"
@@ -31,7 +30,6 @@ cd ..
 echo "Git commit and push..."
 git add .
 git commit -m "update $TIMESTAMP" || echo "Nothing to commit"
-git pull --rebase origin "$BRANCH"
 git push
 
 echo "Deploy backend on server..."
