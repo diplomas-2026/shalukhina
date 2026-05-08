@@ -315,7 +315,7 @@ export default function App() {
     }
   };
 
-  async function loadSnapshot(includeUsers) {
+  async function loadSnapshot(includeUsers, includePurchases) {
     const requests = await api.getRequests();
     const items = await api.getItems();
     const departments = await api.getDepartments();
@@ -323,7 +323,7 @@ export default function App() {
     const warehouses = await api.getWarehouses();
     const stocks = await api.getStockBalances();
     const movements = await api.getMovements();
-    const purchases = await api.getPurchases();
+    const purchases = includePurchases ? await api.getPurchases() : [];
     const dashboard = await api.getDashboard();
     const users = includeUsers ? await api.getUsers() : [];
 
@@ -370,7 +370,7 @@ export default function App() {
         const me = await api.me();
         if (!alive) return;
         setAuthUser(me);
-        const snapshot = await loadSnapshot(me.role === 'ADMIN');
+        const snapshot = await loadSnapshot(me.role === 'ADMIN', me.role !== 'EMPLOYEE');
         if (!alive) return;
         setState(normalizeApiState(snapshot));
         setError('');
@@ -394,7 +394,7 @@ export default function App() {
 
   async function reloadApiSnapshot() {
     try {
-      const snapshot = await loadSnapshot(isAdmin);
+      const snapshot = await loadSnapshot(isAdmin, !isEmployee);
       setState(normalizeApiState(snapshot));
       setError('');
       setMessage('Данные обновлены');
