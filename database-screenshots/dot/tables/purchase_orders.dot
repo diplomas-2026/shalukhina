@@ -1,7 +1,5 @@
 digraph single_table {
   graph [rankdir=TB, fontsize=18];
   node [shape=plain, fontname="Arial"];
-  label="shalukhina — purchase_orders";
-  labelloc=t;
   "purchase_orders" [label=<<TABLE BORDER="1" CELLBORDER="1" CELLSPACING="0" CELLPADDING="6"><TR><TD BGCOLOR="#eeeeee" COLSPAN="3"><B>purchase_orders</B></TD></TR><TR><TD><B>Поле</B></TD><TD><B>Тип</B></TD><TD><B>Модификаторы</B></TD></TR><TR><TD ALIGN="LEFT">id</TD><TD ALIGN="LEFT">bigint(64,0)</TD><TD ALIGN="LEFT">PK, NOT NULL</TD></TR><TR><TD ALIGN="LEFT">created_at</TD><TD ALIGN="LEFT">timestamp without time zone</TD><TD ALIGN="LEFT">NOT NULL</TD></TR><TR><TD ALIGN="LEFT">updated_at</TD><TD ALIGN="LEFT">timestamp without time zone</TD><TD ALIGN="LEFT">NOT NULL</TD></TR><TR><TD ALIGN="LEFT">order_number</TD><TD ALIGN="LEFT">character varying(32)</TD><TD ALIGN="LEFT">NOT NULL, UNIQUE</TD></TR><TR><TD ALIGN="LEFT">status</TD><TD ALIGN="LEFT">character varying(32)</TD><TD ALIGN="LEFT">NOT NULL</TD></TR><TR><TD ALIGN="LEFT">comment</TD><TD ALIGN="LEFT">character varying(500)</TD><TD ALIGN="LEFT"></TD></TR><TR><TD ALIGN="LEFT">created_by_id</TD><TD ALIGN="LEFT">bigint(64,0)</TD><TD ALIGN="LEFT">NOT NULL, FK → app_users.id</TD></TR><TR><TD ALIGN="LEFT">completed_at</TD><TD ALIGN="LEFT">timestamp without time zone</TD><TD ALIGN="LEFT"></TD></TR><TR><TD ALIGN="LEFT">delivery_location</TD><TD ALIGN="LEFT">character varying(255)</TD><TD ALIGN="LEFT">NOT NULL</TD></TR><TR><TD ALIGN="LEFT">delivery_warehouse_id</TD><TD ALIGN="LEFT">bigint(64,0)</TD><TD ALIGN="LEFT">FK → warehouses.id</TD></TR></TABLE>>];
 }

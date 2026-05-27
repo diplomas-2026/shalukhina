@@ -1,7 +1,5 @@
 digraph single_table {
   graph [rankdir=TB, fontsize=18];
   node [shape=plain, fontname="Arial"];
-  label="shalukhina — warehouse_stocks";
-  labelloc=t;
   "warehouse_stocks" [label=<<TABLE BORDER="1" CELLBORDER="1" CELLSPACING="0" CELLPADDING="6"><TR><TD BGCOLOR="#eeeeee" COLSPAN="3"><B>warehouse_stocks</B></TD></TR><TR><TD><B>Поле</B></TD><TD><B>Тип</B></TD><TD><B>Модификаторы</B></TD></TR><TR><TD ALIGN="LEFT">id</TD><TD ALIGN="LEFT">bigint(64,0)</TD><TD ALIGN="LEFT">PK, NOT NULL</TD></TR><TR><TD ALIGN="LEFT">created_at</TD><TD ALIGN="LEFT">timestamp without time zone</TD><TD ALIGN="LEFT">NOT NULL</TD></TR><TR><TD ALIGN="LEFT">updated_at</TD><TD ALIGN="LEFT">timestamp without time zone</TD><TD ALIGN="LEFT">NOT NULL</TD></TR><TR><TD ALIGN="LEFT">warehouse_id</TD><TD ALIGN="LEFT">bigint(64,0)</TD><TD ALIGN="LEFT">NOT NULL, UNIQUE, FK → warehouses.id</TD></TR><TR><TD ALIGN="LEFT">item_id</TD><TD ALIGN="LEFT">bigint(64,0)</TD><TD ALIGN="LEFT">NOT NULL, UNIQUE, FK → supply_items.id</TD></TR><TR><TD ALIGN="LEFT">quantity</TD><TD ALIGN="LEFT">numeric(14,3)</TD><TD ALIGN="LEFT">NOT NULL</TD></TR></TABLE>>];
 }
